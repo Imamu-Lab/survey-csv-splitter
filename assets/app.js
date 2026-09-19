@@ -1,5 +1,5 @@
 'use strict';
-window.SURVEY_CSV_SPLITTER_VERSION = '0.9.0';
+window.SURVEY_CSV_SPLITTER_VERSION = '1.0.0';
 document.getElementById('appLoadError')?.remove();
 (()=>{'use strict';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];

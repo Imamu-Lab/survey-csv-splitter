@@ -1,0 +1,11 @@
+THIRD-PARTY SOFTWARE NOTICES
+
+SheetJS Community Edition 0.20.3
+Purpose: Excel workbook reading
+License: Apache License 2.0
+https://sheetjs.com/
+
+JSZip 3.10.2
+Purpose: ZIP file generation
+License: MIT OR GPL-3.0; MIT terms used in this distribution
+https://stuk.github.io/jszip/
