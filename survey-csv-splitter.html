@@ -1,814 +1,109 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>学校・市町村別CSV分割ツール | Version 0.1.0</title>
-  <style>
-    :root {
-      --navy: #174a7e;
-      --blue: #2468a2;
-      --blue-soft: #eaf3fb;
-      --blue-pale: #f5f9fd;
-      --green: #207a4c;
-      --green-soft: #eaf7f0;
-      --orange: #b86100;
-      --orange-soft: #fff4e5;
-      --red: #b42318;
-      --red-soft: #fff0ef;
-      --ink: #1f2937;
-      --muted: #607080;
-      --line: #d8e0e8;
-      --surface: #ffffff;
-      --canvas: #f3f6f9;
-      --disabled: #eef1f4;
-      --shadow: 0 5px 18px rgba(21, 52, 78, .08);
-      --header-height: 92px;
-      --status-height: 42px;
-      --nav-width: 224px;
-      --summary-width: 282px;
-    }
-
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      background: var(--canvas);
-      font-family: "Yu Gothic UI", "Meiryo", "Yu Gothic", sans-serif;
-      font-size: 15px;
-      line-height: 1.65;
-    }
-    button, input, select { font: inherit; }
-    button { cursor: pointer; }
-    button:disabled { cursor: not-allowed; opacity: .52; }
-    a { color: var(--blue); }
-    :focus-visible { outline: 3px solid rgba(36, 104, 162, .34); outline-offset: 2px; }
-
-    .app-header {
-      position: fixed;
-      z-index: 30;
-      inset: 0 0 auto 0;
-      height: var(--header-height);
-      background: rgba(255,255,255,.98);
-      border-bottom: 1px solid var(--line);
-      box-shadow: 0 2px 12px rgba(20,50,75,.06);
-    }
-    .header-inner {
-      height: 100%;
-      padding: 13px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 22px;
-      border-left: 8px solid var(--navy);
-    }
-    .brand-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .brand h1 { margin: 0; color: var(--navy); font-size: 24px; line-height: 1.25; letter-spacing: .02em; }
-    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
-    .version { color: var(--muted); font-size: 12px; white-space: nowrap; }
-    .badge {
-      display: inline-flex; align-items: center; border-radius: 999px;
-      padding: 3px 10px; font-size: 12px; font-weight: 700;
-    }
-    .badge.dev { color: #854d0e; background: #fef3c7; border: 1px solid #f4c66a; }
-    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-
-    .btn {
-      border: 1px solid transparent;
-      border-radius: 8px;
-      padding: 9px 15px;
-      min-height: 42px;
-      font-weight: 700;
-      transition: background .16s ease, border-color .16s ease, transform .16s ease;
-    }
-    .btn:hover:not(:disabled) { transform: translateY(-1px); }
-    .btn-primary { color: #fff; background: var(--navy); }
-    .btn-primary:hover:not(:disabled) { background: #0f3b67; }
-    .btn-secondary { color: var(--navy); background: #fff; border-color: #9bb3c9; }
-    .btn-secondary:hover:not(:disabled) { background: var(--blue-pale); border-color: var(--blue); }
-    .btn-danger-soft { color: var(--red); background: #fff; border-color: #e9b7b2; }
-    .btn-danger { color: #fff; background: var(--red); }
-    .btn-link { color: var(--blue); background: transparent; border: 0; padding: 5px 2px; min-height: auto; font-weight: 700; }
-    .btn-small { min-height: 34px; padding: 6px 10px; font-size: 13px; }
-
-    .app-shell {
-      min-height: 100vh;
-      padding-top: var(--header-height);
-      padding-bottom: var(--status-height);
-      display: grid;
-      grid-template-columns: var(--nav-width) minmax(0,1fr) var(--summary-width);
-    }
-
-    .step-nav {
-      position: fixed;
-      z-index: 20;
-      top: var(--header-height);
-      bottom: var(--status-height);
-      left: 0;
-      width: var(--nav-width);
-      padding: 19px 13px;
-      background: #fff;
-      border-right: 1px solid var(--line);
-      overflow-y: auto;
-    }
-    .step-nav h2 { margin: 0 8px 12px; font-size: 13px; color: var(--muted); letter-spacing: .08em; }
-    .step-item {
-      width: 100%;
-      display: grid;
-      grid-template-columns: 36px 1fr;
-      gap: 9px;
-      align-items: center;
-      border: 0;
-      border-left: 4px solid transparent;
-      border-radius: 8px;
-      padding: 11px 8px;
-      margin-bottom: 6px;
-      text-align: left;
-      background: transparent;
-      color: var(--muted);
-    }
-    .step-item .step-icon {
-      width: 30px; height: 30px; border-radius: 50%;
-      display: inline-grid; place-items: center;
-      border: 1px solid #bac5d0; background: #fff; font-weight: 800;
-    }
-    .step-item .step-kicker { display:block; font-size: 11px; font-weight:800; letter-spacing:.06em; }
-    .step-item .step-label { display:block; font-size:14px; font-weight:800; color: var(--ink); }
-    .step-item.active { color: var(--navy); background: var(--blue-soft); border-left-color: var(--navy); }
-    .step-item.active .step-icon { color:#fff; background:var(--navy); border-color:var(--navy); }
-    .step-item.done .step-icon { color:#fff; background:var(--green); border-color:var(--green); }
-    .step-item.done { color: var(--green); }
-    .step-item.locked { opacity: .5; cursor:not-allowed; }
-    .nav-note {
-      margin: 18px 6px 0;
-      padding: 11px;
-      color: #7a4a00;
-      background: var(--orange-soft);
-      border: 1px solid #f0c27a;
-      border-radius: 8px;
-      font-size: 12px;
-    }
-
-    .main-area {
-      grid-column: 2;
-      min-width: 0;
-      padding: 24px;
-    }
-    .summary-area {
-      grid-column: 3;
-      min-width: 0;
-      padding: 24px 18px 24px 0;
-    }
-    .summary-card {
-      position: sticky;
-      top: calc(var(--header-height) + 20px);
-      border: 1px solid #c6d9ea;
-      border-radius: 12px;
-      background: var(--blue-pale);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .summary-card h2 { margin:0; padding:14px 16px; color:var(--navy); font-size:16px; border-bottom:1px solid #d4e2ef; background:#eef6fc; }
-    .summary-body { padding: 14px 16px; }
-    .summary-item { margin-bottom: 13px; }
-    .summary-item:last-child { margin-bottom:0; }
-    .summary-label { font-size:12px; color:var(--muted); }
-    .summary-value { font-size:16px; font-weight:800; overflow-wrap:anywhere; }
-    .summary-value.emphasis { color:var(--navy); font-size:24px; }
-    .summary-warning { margin-top:12px; padding:10px; border-radius:8px; color:#7a4a00; background:var(--orange-soft); border:1px solid #f2ca87; font-size:12px; }
-
-    .step-panel { display:none; animation: gentleFade .18s ease; }
-    .step-panel.active { display:block; }
-    @keyframes gentleFade { from { opacity:.25; transform:translateY(3px); } to { opacity:1; transform:none; } }
-    @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }
-
-    .page-title { margin:0 0 18px; }
-    .page-title .eyebrow { color:var(--blue); font-size:12px; font-weight:800; letter-spacing:.09em; }
-    .page-title h2 { margin:3px 0 5px; color:var(--navy); font-size:26px; }
-    .page-title p { margin:0; color:var(--muted); }
-
-    .demo-banner {
-      display:flex; gap:12px; align-items:flex-start;
-      margin: 0 0 18px; padding:13px 15px;
-      border:1px solid #f0c27a; border-left:5px solid var(--orange);
-      border-radius:9px; background:var(--orange-soft); color:#704100;
-    }
-    .demo-banner strong { display:block; }
-
-    .card {
-      background:var(--surface); border:1px solid var(--line); border-radius:12px;
-      box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden;
-    }
-    .card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:16px 18px; border-bottom:1px solid var(--line); }
-    .card-header h3 { margin:0; color:var(--navy); font-size:18px; }
-    .card-header p { margin:3px 0 0; color:var(--muted); font-size:13px; }
-    .card-body { padding:18px; }
-    .card.compact .card-body { padding:14px 18px; }
-
-    .drop-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
-    .drop-zone {
-      padding:24px 16px; min-height:220px;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      text-align:center; border:2px dashed #a9b9c8; border-radius:12px; background:#fbfdff;
-    }
-    .drop-zone.dragover { border-color:var(--blue); background:var(--blue-soft); box-shadow:inset 0 0 0 2px rgba(36,104,162,.08); }
-    .drop-zone.loaded { border-style:solid; border-color:#83b99a; background:var(--green-soft); }
-    .drop-zone-icon { font-size:34px; line-height:1; color:var(--blue); }
-    .drop-zone h3 { margin:10px 0 4px; font-size:17px; }
-    .drop-zone p { margin:3px 0; color:var(--muted); font-size:13px; }
-    .file-meta { margin-top:10px; width:100%; padding:10px; border-radius:8px; background:rgba(255,255,255,.75); overflow-wrap:anywhere; }
-    .file-input { position:absolute; inline-size:1px; block-size:1px; opacity:0; pointer-events:none; }
-
-    .message {
-      display:flex; gap:11px; align-items:flex-start; border-radius:9px;
-      padding:12px 14px; margin:10px 0; border:1px solid;
-    }
-    .message .symbol { width:22px; flex:0 0 22px; font-weight:900; text-align:center; }
-    .message strong { display:block; }
-    .message p { margin:2px 0 0; }
-    .message.success { color:#145c3a; background:var(--green-soft); border-color:#a7d4bc; }
-    .message.info { color:#174a7e; background:var(--blue-soft); border-color:#b8d4ea; }
-    .message.warning { color:#784600; background:var(--orange-soft); border-color:#efc47e; }
-    .message.error { color:#8a2018; background:var(--red-soft); border-color:#e8aaa5; }
-
-    .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
-    .metric { padding:15px; border:1px solid var(--line); border-radius:10px; background:#fff; }
-    .metric-label { color:var(--muted); font-size:12px; }
-    .metric-value { margin-top:3px; color:var(--navy); font-size:23px; font-weight:900; }
-
-    .check-list { list-style:none; margin:0; padding:0; }
-    .check-list li { display:flex; gap:9px; padding:7px 0; border-bottom:1px dotted #d9e0e6; }
-    .check-list li:last-child { border-bottom:0; }
-    .check-list .ok { color:var(--green); font-weight:900; }
-    .details { margin-top:10px; padding:12px; background:#f8fafc; border:1px solid var(--line); border-radius:8px; }
-    details summary { cursor:pointer; color:var(--blue); font-weight:800; }
-
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .field { margin-bottom:14px; }
-    .field label { display:block; margin-bottom:5px; font-weight:800; }
-    .field-hint { margin:4px 0 0; color:var(--muted); font-size:12px; }
-    .required, .optional { margin-left:7px; border-radius:999px; padding:2px 7px; font-size:11px; }
-    .required { color:#8a2018; background:#fee4e2; }
-    .optional { color:#52606d; background:#edf1f4; }
-    input[type="text"], select {
-      width:100%; min-height:44px; padding:9px 11px;
-      color:var(--ink); background:#fff; border:1px solid #aebcc9; border-radius:8px;
-    }
-    input.invalid { border-color:var(--red); background:var(--red-soft); }
-    .input-error { color:var(--red); font-size:12px; margin-top:4px; }
-
-    .filter-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:11px; }
-    .chip {
-      min-height:34px; padding:5px 11px; border-radius:999px;
-      border:1px solid #b8c6d3; background:#fff; color:var(--ink); font-weight:700;
-    }
-    .chip.active { color:#fff; background:var(--navy); border-color:var(--navy); }
-
-    .table-wrap { max-height:332px; overflow:auto; border:1px solid var(--line); border-radius:9px; background:#fff; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { padding:10px 11px; border-bottom:1px solid #e5e9ed; text-align:left; vertical-align:top; }
-    th { position:sticky; z-index:1; top:0; background:#eef4f8; color:#31475a; font-size:13px; }
-    td.num, th.num { text-align:right; white-space:nowrap; }
-    tbody tr:hover { background:#f7fbfe; }
-    .status-pill { display:inline-flex; border-radius:999px; padding:3px 8px; font-size:11px; font-weight:800; white-space:nowrap; }
-    .status-pill.good { color:#145c3a; background:var(--green-soft); }
-    .status-pill.zero { color:#5e6872; background:#edf1f4; }
-    .status-pill.warn { color:#784600; background:var(--orange-soft); }
-
-    .option-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-    .option-card {
-      position:relative; min-height:178px; padding:16px;
-      border:2px solid #d6dee6; border-radius:11px; background:#fff; text-align:left;
-    }
-    .option-card:hover { border-color:#8eb2d1; }
-    .option-card.selected { border-color:var(--navy); background:var(--blue-soft); }
-    .option-card h4 { margin:0 0 7px; color:var(--navy); font-size:17px; }
-    .option-card p { margin:0; color:var(--muted); font-size:13px; }
-    .option-card .format-tag { display:inline-block; margin-top:12px; padding:3px 8px; color:var(--navy); background:#fff; border:1px solid #aac5dc; border-radius:999px; font-size:11px; font-weight:800; }
-    .option-card .selected-mark { position:absolute; top:9px; right:10px; color:var(--navy); font-weight:900; display:none; }
-    .option-card.selected .selected-mark { display:block; }
-
-    .radio-stack { display:grid; gap:9px; }
-    .radio-option { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:start; padding:12px; border:1px solid var(--line); border-radius:9px; }
-    .radio-option.selected { border-color:#8eb8d9; background:var(--blue-pale); }
-    .radio-option strong { display:block; }
-    .radio-option small { color:var(--muted); }
-    .radio-count { font-weight:900; color:var(--navy); white-space:nowrap; }
-
-    .preview-box { padding:13px; border-radius:9px; border:1px solid #c6d9ea; background:var(--blue-pale); }
-    .preview-box .preview-label { color:var(--muted); font-size:12px; }
-    .preview-name { font-family:ui-monospace, "SFMono-Regular", Consolas, monospace; overflow-wrap:anywhere; font-weight:700; }
-    .preview-list { margin:8px 0 0; padding-left:19px; }
-
-    .action-row { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
-    .action-right { display:flex; gap:9px; margin-left:auto; }
-
-    .progress-area { text-align:center; padding:26px 18px; }
-    .progress-track { height:15px; margin:17px auto 10px; max-width:620px; border-radius:999px; background:#e2e8ee; overflow:hidden; }
-    .progress-bar { height:100%; width:0; background:linear-gradient(90deg,var(--blue),var(--green)); transition:width .28s ease; }
-    .progress-percent { color:var(--navy); font-size:22px; font-weight:900; }
-    .completion-mark { width:66px; height:66px; display:grid; place-items:center; margin:0 auto 13px; border-radius:50%; color:#fff; background:var(--green); font-size:34px; font-weight:900; }
-    .next-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
-    .next-actions .btn { text-align:left; }
-
-    .history-list { list-style:none; padding:0; margin:0; }
-    .history-list li { display:grid; grid-template-columns:54px 1fr; gap:9px; padding:8px 0; border-bottom:1px dotted #d6dde4; }
-    .history-list li:last-child { border-bottom:0; }
-    .history-time { color:var(--muted); font-size:12px; }
-
-    .status-bar {
-      position:fixed; z-index:31; inset:auto 0 0 0; height:var(--status-height);
-      display:flex; align-items:center; justify-content:space-between; gap:16px;
-      padding:0 18px; color:#fff; background:#263746; font-size:13px;
-    }
-    .status-main { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .status-state { font-weight:800; white-space:nowrap; }
-
-    .sidepanel-backdrop, .modal-backdrop {
-      position:fixed; z-index:80; inset:0; background:rgba(18,31,43,.42); display:none;
-    }
-    .sidepanel-backdrop.open, .modal-backdrop.open { display:block; }
-    .sidepanel {
-      position:absolute; right:0; top:0; bottom:0; width:min(450px,92vw); background:#fff; box-shadow:-8px 0 24px rgba(0,0,0,.17); padding:20px; overflow:auto;
-    }
-    .sidepanel-header { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:12px; }
-    .sidepanel h2 { margin:0; color:var(--navy); }
-    .close-btn { width:40px; height:40px; border:1px solid var(--line); border-radius:50%; background:#fff; font-size:20px; }
-    .modal {
-      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:min(560px,92vw); max-height:85vh; overflow:auto; padding:20px; background:#fff; border-radius:13px; box-shadow:0 18px 55px rgba(0,0,0,.25);
-    }
-    .modal h2 { margin-top:0; color:var(--navy); }
-    .modal-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:17px; }
-
-    .toast-region { position:fixed; z-index:100; top:calc(var(--header-height) + 12px); right:14px; width:min(340px,90vw); }
-    .toast { padding:11px 13px; margin-bottom:9px; color:#145c3a; background:#fff; border:1px solid #9acaae; border-left:5px solid var(--green); border-radius:9px; box-shadow:var(--shadow); }
-
-    .hidden { display:none !important; }
-
-    @media (max-width: 1150px) {
-      :root { --summary-width: 0px; }
-      .app-shell { grid-template-columns:var(--nav-width) minmax(0,1fr); }
-      .summary-area { display:none; }
-      .main-area { grid-column:2; }
-      .inline-summary { display:block !important; }
-    }
-    @media (max-width: 780px) {
-      :root { --nav-width: 110px; --header-height: 118px; }
-      .header-inner { align-items:flex-start; padding:10px 12px; }
-      .brand h1 { font-size:19px; }
-      .brand p { display:none; }
-      .header-actions { max-width:300px; }
-      .step-nav { padding:12px 7px; }
-      .step-nav h2, .step-kicker { display:none !important; }
-      .step-item { grid-template-columns:30px 1fr; padding:9px 5px; gap:5px; }
-      .step-item .step-label { font-size:12px; }
-      .nav-note { display:none; }
-      .main-area { padding:16px 12px; }
-      .drop-grid, .form-grid, .option-cards, .next-actions { grid-template-columns:1fr; }
-      .metric-grid { grid-template-columns:1fr 1fr; }
-      .action-row { align-items:stretch; flex-direction:column; }
-      .action-right { margin-left:0; }
-      .action-row .btn { width:100%; }
-      .status-bar { font-size:11px; padding:0 9px; }
-    }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学校・市町村別CSV分割ツール v0.3.2</title>
+<style>
+:root{--blue:#174a7e;--blue2:#2468a2;--soft:#eef6fc;--bg:#f3f6f9;--line:#d7e0e8;--text:#1f2937;--muted:#637282;--green:#207a4c;--orange:#b86100;--red:#b42318;--head:92px;--foot:42px;--nav:222px;--sum:280px}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 "Yu Gothic UI","Meiryo",sans-serif}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}:focus-visible{outline:3px solid #76a8d2;outline-offset:2px}.header{position:fixed;z-index:30;inset:0 0 auto;height:var(--head);background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 12px #173c5d12}.header-in{height:100%;display:flex;justify-content:space-between;align-items:center;gap:15px;padding:12px 20px;border-left:8px solid var(--blue)}h1{margin:0;color:var(--blue);font-size:24px}.sub{color:var(--muted);font-size:13px}.badge{display:inline-block;margin-left:8px;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#854d0e;border:1px solid #f4c66a;font-size:12px;font-weight:800}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn{min-height:40px;padding:8px 14px;border-radius:8px;border:1px solid transparent;font-weight:800}.primary{background:var(--blue);color:#fff}.secondary{background:#fff;color:var(--blue);border-color:#9db4c8}.danger{background:#fff;color:var(--red);border-color:#e4b5b0}.layout{min-height:100vh;padding-top:var(--head);padding-bottom:var(--foot);display:grid;grid-template-columns:var(--nav) minmax(0,1fr) var(--sum)}.nav{position:fixed;z-index:20;top:var(--head);bottom:var(--foot);left:0;width:var(--nav);padding:18px 12px;background:#fff;border-right:1px solid var(--line);overflow:auto}.nav-title{margin:0 8px 10px;color:var(--muted);font-size:12px;font-weight:800}.step{width:100%;display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center;margin:5px 0;padding:10px 7px;border:0;border-left:4px solid transparent;border-radius:8px;background:transparent;text-align:left}.step .n{width:29px;height:29px;display:grid;place-items:center;border:1px solid #b8c4ce;border-radius:50%;background:#fff;font-weight:900}.step small{display:block;color:var(--muted);font-weight:800}.step strong{display:block}.step.active{background:#eaf3fb;border-left-color:var(--blue)}.step.active .n{background:var(--blue);color:#fff;border-color:var(--blue)}.step.done .n{background:var(--green);color:#fff;border-color:var(--green)}.main{grid-column:2;padding:24px;min-width:0}.summary-wrap{grid-column:3;padding:24px 17px 24px 0}.summary{position:sticky;top:calc(var(--head) + 20px);border:1px solid #c4d9e9;border-radius:12px;background:#f5f9fd;overflow:hidden}.summary h3{margin:0;padding:13px 15px;color:var(--blue);background:#eaf3fb;border-bottom:1px solid #d4e2ed}.summary-body{padding:14px}.sumitem{margin-bottom:12px}.sumitem small{display:block;color:var(--muted)}.sumitem b{font-size:16px}.sumitem .big{font-size:25px;color:var(--blue)}.banner,.msg{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:9px;border:1px solid;margin-bottom:15px}.banner{background:#fff4e5;color:#704100;border-color:#efc075;border-left:5px solid var(--orange)}.ok{background:#eaf7f0;color:#145c3a;border-color:#a4d0b7}.info{background:#eaf3fb;color:#174a7e;border-color:#b8d4e8}.warn{background:#fff4e5;color:#754400;border-color:#efc47e}.err{background:#fff0ef;color:#8a2018;border-color:#e4aaa5}.panel{display:none}.panel.active{display:block}.title{margin-bottom:17px}.title small{color:var(--blue);font-weight:900}.title h2{margin:2px 0;color:var(--blue);font-size:26px}.title p{margin:0;color:var(--muted)}.card{margin-bottom:17px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 18px #15344e12;overflow:hidden}.card-head{padding:14px 17px;border-bottom:1px solid var(--line)}.card-head h3{margin:0;color:var(--blue)}.card-head p{margin:3px 0 0;color:var(--muted);font-size:13px}.card-body{padding:17px}.drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.drop{min-height:220px;padding:22px 14px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border:2px dashed #aebdca;border-radius:11px;background:#fbfdff}.drop.over{background:#eaf3fb;border-color:var(--blue)}.drop.selected{background:#eaf7f0;border-style:solid;border-color:#5da77a;box-shadow:inset 0 0 0 1px #5da77a}.drop.selected .drop-icon{color:var(--green)!important}.drop.analyzing{background:#eaf3fb;border-style:solid;border-color:var(--blue2);box-shadow:inset 0 0 0 1px var(--blue2)}.drop.errorstate{background:#fff0ef;border-style:solid;border-color:#d66b61;box-shadow:inset 0 0 0 1px #d66b61}.drop.errorstate .drop-icon{color:var(--red)!important}.file-role{max-width:390px;color:var(--muted);font-size:13px;margin-bottom:8px}.readybox{margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:#fff}.readybox.complete{background:#eaf7f0;border-color:#83b99a;color:#145c3a}.readybox.partial{background:#f5f9fd;border-color:#b8d4e8;color:#174a7e}.ready-line{display:flex;justify-content:space-between;gap:10px;align-items:center}.ready-track{height:8px;margin-top:9px;background:#e1e7ec;border-radius:999px;overflow:hidden}.ready-bar{height:100%;width:0;background:var(--blue2);transition:width .2s}.readybox.complete .ready-bar{background:var(--green)}.target-files{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}.target-file{padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff;overflow-wrap:anywhere}.target-file small{display:block;color:var(--muted)}.drop.loaded{background:#eaf7f0;border-style:solid;border-color:#83b99a}.drop h3{margin:8px 0}.drop p{margin:2px;color:var(--muted);font-size:13px}.meta{width:100%;margin-top:9px;padding:9px;background:#ffffffc7;border-radius:7px;overflow-wrap:anywhere}.hidden{display:none!important}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}.metric{padding:14px;border:1px solid var(--line);border-radius:9px}.metric small{display:block;color:var(--muted)}.metric b{font-size:22px;color:var(--blue)}.checks{list-style:none;padding:0;margin:0}.checks li{padding:7px;border-bottom:1px dotted var(--line)}.checks li:last-child{border:0}.checks span{color:var(--green);font-weight:900;margin-right:8px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field{margin-bottom:13px}.field label{display:block;margin-bottom:4px;font-weight:800}.field input,.field select,select{width:100%;min-height:43px;padding:8px 10px;border:1px solid #aebcc9;border-radius:7px;background:#fff}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}.chip{min-height:33px;padding:5px 10px;border:1px solid #b8c6d3;border-radius:999px;background:#fff;font-weight:800}.chip.active{background:var(--blue);color:#fff;border-color:var(--blue)}.tablebox{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:9px 10px;border-bottom:1px solid #e5e9ed;text-align:left}th{position:sticky;top:0;background:#eef4f8;font-size:13px}td.num,th.num{text-align:right}.pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800}.pill.good{background:#eaf7f0;color:#145c3a}.pill.zero{background:#edf1f4;color:#596570}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}.option{padding:14px;text-align:left;border:2px solid #d6dee6;border-radius:10px;background:#fff}.option.sel{border-color:var(--blue);background:#eaf3fb}.option h4{margin:0 0 5px;color:var(--blue)}.option p{margin:0;color:var(--muted);font-size:13px}.radio-list{display:grid;gap:8px}.radio{display:grid;grid-template-columns:auto 1fr auto;gap:9px;padding:11px;border:1px solid var(--line);border-radius:8px}.radio.sel{background:#f5f9fd;border-color:#91b7d7}.count{font-weight:900;color:var(--blue)}.preview{padding:12px;border:1px solid #c4d9e9;border-radius:8px;background:#f5f9fd;overflow-wrap:anywhere}.mono{font-family:Consolas,monospace;font-weight:700}.row-actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}.right{margin-left:auto;display:flex;gap:8px}.details{margin-top:10px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#f8fafc}details summary{cursor:pointer;color:var(--blue);font-weight:800}.status{position:fixed;z-index:40;inset:auto 0 0;height:var(--foot);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 17px;background:#263746;color:#fff;font-size:13px}.status div:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.side-bg,.modal-bg{position:fixed;z-index:80;inset:0;display:none;background:#12202b70}.side-bg.open,.modal-bg.open{display:block}.side{position:absolute;right:0;top:0;bottom:0;width:min(440px,92vw);padding:19px;background:#fff;overflow:auto}.side-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.close{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff}.modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(540px,92vw);padding:19px;background:#fff;border-radius:12px}.toastbox{position:fixed;z-index:100;top:calc(var(--head) + 10px);right:13px;width:min(340px,90vw)}.toast{margin-bottom:8px;padding:10px 12px;background:#fff;border:1px solid #9acaae;border-left:5px solid var(--green);border-radius:8px;box-shadow:0 5px 18px #15344e22}.inline-summary{display:none}.validation{margin-top:9px;padding:10px;border-radius:8px;border:1px solid var(--line)}.validation.normal{background:#f5f9fd;color:var(--blue)}.validation.warning{background:#fff4e5;color:#754400;border-color:#efc47e}.validation.error{background:#fff0ef;color:#8a2018;border-color:#e4aaa5}.next-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.history{margin-top:15px;text-align:left}.history ul{list-style:none;padding:0;margin:0}.history li{padding:7px 0;border-bottom:1px dotted var(--line)}.progress{height:14px;background:#e2e8ee;border-radius:999px;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--blue2),var(--green))}@media(max-width:1150px){:root{--sum:0px}.layout{grid-template-columns:var(--nav) minmax(0,1fr)}.summary-wrap{display:none}.inline-summary{display:block}.main{grid-column:2}}@media(max-width:780px){:root{--nav:108px;--head:118px}.header-in{padding:9px}.header h1{font-size:19px}.sub{display:none}.nav{padding:10px 5px}.step{grid-template-columns:29px 1fr;padding:8px 4px}.step small{display:none}.step strong{font-size:12px}.main{padding:14px 10px}.drop-grid,.form-grid,.options,.metrics{grid-template-columns:1fr}.row-actions{flex-direction:column}.right{margin:0}.row-actions .btn{width:100%}}
+</style>
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-line">
-          <h1>学校・市町村別CSV分割ツール</h1>
-          <span class="badge dev">試作・検証版</span>
-          <span class="version">Version 0.1.0 / 更新日 2026/09/19</span>
-        </div>
-        <p>調査用児童生徒番号をもとに、ローデータを学校別または市町村別に抽出します。</p>
-      </div>
-      <div class="header-actions">
-        <button class="btn btn-secondary btn-small" data-open-panel="help">使い方</button>
-        <button class="btn btn-secondary btn-small" data-open-panel="notice">注意事項</button>
-        <button class="btn btn-danger-soft btn-small" id="resetTop">すべてリセット</button>
-      </div>
-    </div>
-  </header>
-
-  <div class="app-shell">
-    <nav class="step-nav" aria-label="作業ステップ">
-      <h2>作業ステップ</h2>
-      <button class="step-item active" data-step="1"><span class="step-icon">1</span><span><span class="step-kicker">STEP 1</span><span class="step-label">ファイル読込</span></span></button>
-      <button class="step-item locked" data-step="2" disabled><span class="step-icon">2</span><span><span class="step-kicker">STEP 2</span><span class="step-label">データ確認</span></span></button>
-      <button class="step-item locked" data-step="3" disabled><span class="step-icon">3</span><span><span class="step-kicker">STEP 3</span><span class="step-label">対象選択</span></span></button>
-      <button class="step-item locked" data-step="4" disabled><span class="step-icon">4</span><span><span class="step-kicker">STEP 4</span><span class="step-label">出力設定</span></span></button>
-      <button class="step-item locked" data-step="5" disabled><span class="step-icon">5</span><span><span class="step-kicker">STEP 5</span><span class="step-label">内容確認</span></span></button>
-      <button class="step-item locked" data-step="6" disabled><span class="step-icon">6</span><span><span class="step-kicker">STEP 6</span><span class="step-label">生成・完了</span></span></button>
-      <div class="nav-note"><strong>画面確認用</strong><br>この版では実際のCSV・Excel処理やファイル生成は行いません。</div>
-    </nav>
-
-    <main class="main-area">
-      <div class="demo-banner">
-        <div aria-hidden="true">△</div>
-        <div><strong>Version 0.1.0はUI確認用です</strong>サンプルデータで画面遷移と操作感を確認できます。実際のCSV・Excelの解析やZIP生成は行いません。</div>
-      </div>
-
-      <section class="step-panel active" id="stepPanel1" aria-labelledby="stepTitle1">
-        <div class="page-title"><div class="eyebrow">STEP 1</div><h2 id="stepTitle1">ファイル読込</h2><p>元データCSVと学校コードExcelを選択します。試作版では、選択したファイル名だけを確認します。</p></div>
-        <div class="drop-grid">
-          <div class="drop-zone" id="csvDrop" data-kind="csv" tabindex="0">
-            <div class="drop-zone-icon" aria-hidden="true">⇩</div><h3>元データCSV</h3>
-            <p>CSVファイルをここへドラッグ＆ドロップ</p><p>または</p>
-            <button class="btn btn-secondary" type="button" data-pick="csv">元データCSVを選択</button>
-            <input class="file-input" id="csvInput" type="file" accept=".csv,text/csv">
-            <p>対応形式：.csv</p><div class="file-meta hidden" id="csvMeta"></div>
-          </div>
-          <div class="drop-zone" id="xlsxDrop" data-kind="xlsx" tabindex="0">
-            <div class="drop-zone-icon" aria-hidden="true">⇩</div><h3>学校コードExcel</h3>
-            <p>Excelファイルをここへドラッグ＆ドロップ</p><p>または</p>
-            <button class="btn btn-secondary" type="button" data-pick="xlsx">学校コードExcelを選択</button>
-            <input class="file-input" id="xlsxInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <p>対応形式：.xlsx</p><div class="file-meta hidden" id="xlsxMeta"></div>
-          </div>
-        </div>
-        <div class="message info"><span class="symbol">ℹ</span><div><strong>ファイルを選択しなくても画面確認できます</strong><p>下のボタンから架空のサンプルデータを使ってSTEP 2以降へ進めます。</p></div></div>
-        <div class="action-row"><span></span><div class="action-right"><button class="btn btn-primary" id="startDemo">サンプルデータで画面確認を開始</button></div></div>
-      </section>
-
-      <section class="step-panel" id="stepPanel2" aria-labelledby="stepTitle2">
-        <div class="page-title"><div class="eyebrow">STEP 2</div><h2 id="stepTitle2">データ確認</h2><p>ファイル形式、校種、学校コードの照合結果を確認します。</p></div>
-        <div class="filter-row"><strong>表示確認：</strong><button class="chip active" data-check-view="normal">正常</button><button class="chip" data-check-view="warning">警告</button><button class="chip" data-check-view="error">エラー</button></div>
-        <div id="checkNormal">
-          <div class="metric-grid">
-            <div class="metric"><div class="metric-label">判定校種</div><div class="metric-value">小学校</div></div>
-            <div class="metric"><div class="metric-label">データ件数</div><div class="metric-value">240件</div></div>
-            <div class="metric"><div class="metric-label">データ内学校</div><div class="metric-value">4校</div></div>
-            <div class="metric"><div class="metric-label">CSV列数</div><div class="metric-value">96列</div></div>
-          </div>
-          <div class="card" style="margin-top:16px"><div class="card-header"><div><h3>検査結果</h3><p>画面確認用のサンプル結果です。</p></div></div><div class="card-body">
-            <ul class="check-list"><li><span class="ok">✓</span><span>調査用児童生徒番号列を確認</span></li><li><span class="ok">✓</span><span>初回受検フラグ列を確認</span></li><li><span class="ok">✓</span><span>最終回受検フラグ列を確認</span></li><li><span class="ok">✓</span><span>小学校データとして判定</span></li><li><span class="ok">✓</span><span>学校コードを照合</span></li></ul>
-            <div class="message info"><span class="symbol">ℹ</span><div><strong>同じ名称の列があります</strong><p>列名と列位置を変更せず、そのまま出力する想定です。</p></div></div>
-            <div class="message info"><span class="symbol">ℹ</span><div><strong>同一の調査用児童生徒番号を持つ行があります</strong><p>受検回などの違いを含む可能性があります。選択した抽出条件に従います。</p></div></div>
-            <details><summary>詳細な検査結果を表示</summary><div class="details">CSV解析時間：0.8秒<br>マスター解析時間：0.2秒<br>件数集計時間：0.1秒<br>使用ブラウザ：画面表示用サンプル</div></details>
-          </div></div>
-        </div>
-        <div id="checkWarning" class="hidden">
-          <div class="message warning"><span class="symbol">△</span><div><strong>重要な確認事項があります</strong><p>標準列名と前後空白が異なる列を候補として使用する想定の表示です。</p></div></div>
-          <div class="card"><div class="card-body"><label><input type="checkbox" id="warningAck"> 警告内容を確認しました</label></div></div>
-        </div>
-        <div id="checkError" class="hidden">
-          <div class="message error"><span class="symbol">×</span><div><strong>学校コード表に未登録のコードがあります</strong><p>未登録コード：2件。実際の版ではファイルを修正して読み直すまで次へ進めません。</p></div></div>
-          <details><summary>未登録コードを確認</summary><div class="details">120999：4件<br>130999：2件<br>調査用児童生徒番号は画面に表示しません。</div></details>
-        </div>
-        <div class="action-row"><button class="btn btn-secondary" data-goto="1">ファイル選択に戻る</button><div class="action-right"><button class="btn btn-primary" id="toStep3">対象市町村の選択へ</button></div></div>
-      </section>
-
-      <section class="step-panel" id="stepPanel3" aria-labelledby="stepTitle3">
-        <div class="page-title"><div class="eyebrow">STEP 3</div><h2 id="stepTitle3">対象選択</h2><p>教育事務所と市町村を1つずつ選び、学校と全データ件数を確認します。</p></div>
-        <div class="card"><div class="card-header"><div><h3>教育事務所・市町村</h3><p>市町村は、学校コード一覧表の「教育委員会名」を表示する想定です。</p></div></div><div class="card-body">
-          <div class="form-grid"><div class="field"><label for="officeSelect">教育事務所</label><select id="officeSelect"><option value="">選択してください</option><option value="sample">サンプル教育事務所</option><option value="other">別の教育事務所</option></select></div><div class="field"><label for="citySelect">市町村</label><select id="citySelect" disabled><option value="">教育事務所を先に選択してください</option></select></div></div>
-        </div></div>
-        <div class="card hidden" id="cityOverview"><div class="card-header"><div><h3 id="cityHeading">選択した市町村</h3><p id="citySubheading"></p></div></div><div class="card-body">
-          <div class="metric-grid"><div class="metric"><div class="metric-label">登録学校</div><div class="metric-value" id="registeredCount">5校</div></div><div class="metric"><div class="metric-label">データあり</div><div class="metric-value" id="withDataCount">4校</div></div><div class="metric"><div class="metric-label">データなし</div><div class="metric-value" id="withoutDataCount">1校</div></div><div class="metric"><div class="metric-label">全データ</div><div class="metric-value" id="cityDataCount">240件</div></div></div>
-          <div class="filter-row" style="margin-top:16px"><strong>表示：</strong><button class="chip active" data-school-filter="all">すべて</button><button class="chip" data-school-filter="data">データあり</button><button class="chip" data-school-filter="zero">データなし</button></div>
-          <div class="table-wrap"><table><thead><tr><th>状態</th><th>学校コード</th><th>学校名</th><th class="num">全件数</th></tr></thead><tbody id="schoolTableBody"></tbody></table></div>
-          <div class="message info hidden" id="zeroCityMessage"><span class="symbol">ℹ</span><div><strong>この市町村には出力可能なデータがありません</strong><p>学校コード表には学校がありますが、サンプルデータは0件です。</p></div></div>
-        </div></div>
-        <div class="action-row"><button class="btn btn-secondary" data-goto="2">データ確認に戻る</button><div class="action-right"><button class="btn btn-primary" id="toStep4" disabled>出力設定へ進む</button></div></div>
-      </section>
-
-      <section class="step-panel" id="stepPanel4" aria-labelledby="stepTitle4">
-        <div class="page-title"><div class="eyebrow">STEP 4</div><h2 id="stepTitle4">出力設定</h2><p>出力方法、受検データの抽出条件、ファイル名を設定します。</p></div>
-        <div class="summary-card inline-summary hidden" style="position:static;margin-bottom:16px"><h2>現在の出力予定</h2><div class="summary-body" id="inlineSummary"></div></div>
-        <div class="card"><div class="card-header"><div><h3>4-1 出力方法</h3><p>1回の操作では1つの出力方法を選択します。</p></div></div><div class="card-body"><div class="option-cards">
-          <button class="option-card selected" data-output-mode="schools"><span class="selected-mark">✓</span><h4>学校ごと一括出力</h4><p>学校ごとにCSVを作成し、処理結果一覧とともにZIPへまとめます。</p><span class="format-tag">ZIP</span></button>
-          <button class="option-card" data-output-mode="city"><span class="selected-mark">✓</span><h4>市町村ファイル出力</h4><p>市町村内の全学校データを1つのCSVにまとめ、処理結果一覧とともにZIPへまとめます。</p><span class="format-tag">ZIP</span></button>
-          <button class="option-card" data-output-mode="single"><span class="selected-mark">✓</span><h4>1校指定出力</h4><p>市町村内から1校を指定し、その学校のCSVを直接出力します。</p><span class="format-tag">CSV</span></button>
-        </div></div></div>
-
-        <div class="card hidden" id="singleSchoolCard"><div class="card-header"><div><h3>4-2 出力する学校</h3><p>0件の学校は一覧に表示しますが選択できません。</p></div></div><div class="card-body"><div class="field"><label for="schoolSelect">学校</label><select id="schoolSelect"></select></div><div class="message info hidden" id="previousSchoolNote"><span class="symbol">ℹ</span><div><strong>直前に出力した学校</strong><p id="previousSchoolText"></p></div></div></div></div>
-
-        <div class="card"><div class="card-header"><div><h3>4-3 受検データの抽出条件</h3><p>選んだ条件に該当しない行は出力から除外します。</p></div></div><div class="card-body"><div class="radio-stack" id="conditionOptions">
-          <label class="radio-option selected"><input type="radio" name="condition" value="all" checked><span><strong>全データを残す</strong><small>該当するすべての行を出力します。</small></span><span class="radio-count" data-condition-count="all">240件</span></label>
-          <label class="radio-option"><input type="radio" name="condition" value="first"><span><strong>初回受検フラグのみ</strong><small>初回受検フラグが「○」の行だけを出力します。</small></span><span class="radio-count" data-condition-count="first">226件</span></label>
-          <label class="radio-option"><input type="radio" name="condition" value="last"><span><strong>最終回受検フラグのみ</strong><small>最終回受検フラグが「○」の行だけを出力します。</small></span><span class="radio-count" data-condition-count="last">220件</span></label>
-        </div></div></div>
-
-        <div class="card" id="filenameCard"><div class="card-header"><div><h3>4-4 ファイル名設定</h3><p>区切り文字は「_」固定です。</p></div></div><div class="card-body">
-          <div class="field"><label for="prefixInput">先頭文字<span class="optional">任意</span></label><input type="text" id="prefixInput" value=""><p class="field-hint">初期値は空欄です。</p></div>
-          <div class="field"><label for="surveyInput">調査名<span class="required">必須</span></label><input type="text" id="surveyInput" value="サンプル調査_2026"><div class="input-error hidden" id="surveyError"></div><p class="field-hint">正式版では元CSVのファイル名から「.csv」を除いた値を初期表示します。</p></div>
-          <div class="field"><label for="suffixInput">末尾文字<span class="optional">任意</span></label><input type="text" id="suffixInput" value="学校用"></div>
-          <div class="preview-box"><div class="preview-label">ファイル名プレビュー</div><div class="preview-name" id="filenamePreview"></div><ul class="preview-list" id="additionalPreviews"></ul><div class="field-hint" id="nameLength"></div></div>
-        </div></div>
-        <div class="action-row"><button class="btn btn-secondary" data-goto="3">対象市町村の選択に戻る</button><div class="action-right"><button class="btn btn-primary" id="toStep5">設定内容を確認する</button></div></div>
-      </section>
-
-      <section class="step-panel" id="stepPanel5" aria-labelledby="stepTitle5">
-        <div class="page-title"><div class="eyebrow">STEP 5</div><h2 id="stepTitle5">内容確認</h2><p>設定内容と出力予定を確認し、問題がなければ生成へ進みます。</p></div>
-        <div class="card"><div class="card-header"><div><h3>処理対象</h3><p>市町村と校種を確認してください。</p></div><button class="btn btn-secondary btn-small" data-edit="target">対象を変更</button></div><div class="card-body" id="reviewTarget"></div></div>
-        <div class="card"><div class="card-header"><div><h3>出力方法・抽出条件</h3></div><button class="btn btn-secondary btn-small" data-edit="settings">設定を変更</button></div><div class="card-body" id="reviewSettings"></div></div>
-        <div class="card"><div class="card-header"><div><h3>ファイル名</h3></div><button class="btn btn-secondary btn-small" data-edit="name">名称を変更</button></div><div class="card-body" id="reviewFilename"></div></div>
-        <div class="card"><div class="card-header"><div><h3>出力予定一覧</h3><p>学校コード表の記載順で表示します。</p></div><button class="btn btn-secondary btn-small" id="toggleFullNames">全ファイル名を表示</button></div><div class="card-body">
-          <div class="filter-row"><strong>表示：</strong><button class="chip active" data-review-filter="all">すべて</button><button class="chip" data-review-filter="output">出力・収録予定</button><button class="chip" data-review-filter="conditionZero">選択条件では0件</button><button class="chip" data-review-filter="sourceZero">元から0件</button></div>
-          <div class="table-wrap"><table><thead><tr><th>状態</th><th>学校コード</th><th>学校名</th><th class="num">全件数</th><th class="num">出力件数</th><th>出力ファイル</th></tr></thead><tbody id="reviewTableBody"></tbody></table></div>
-        </div></div>
-        <div class="message success"><span class="symbol">✓</span><div><strong>件数の整合性を確認しました</strong><p id="integrityText"></p></div></div>
-        <div class="message warning hidden" id="reviewWarning"><span class="symbol">△</span><div><strong>重要な確認事項があります</strong><p>これは試作版の警告確認動作です。</p><label><input type="checkbox" id="reviewAck"> 警告内容を確認しました</label></div></div>
-        <div class="preview-box"><div class="preview-label">ダウンロードするファイル</div><div class="preview-name" id="downloadPreview"></div><div id="downloadContents"></div></div>
-        <div class="action-row"><button class="btn btn-secondary" data-goto="4">出力設定に戻る</button><div class="action-right"><button class="btn btn-primary" id="generateButton">ZIPを生成する</button></div></div>
-      </section>
-
-      <section class="step-panel" id="stepPanel6" aria-labelledby="stepTitle6">
-        <div class="page-title"><div class="eyebrow">STEP 6</div><h2 id="stepTitle6">生成・完了</h2><p>試作版では数秒間の疑似処理を表示します。</p></div>
-        <div class="card" id="generatingCard"><div class="progress-area"><h3 id="progressTitle">ファイルを作成しています</h3><p id="progressDetail">画面を閉じずにお待ちください。</p><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><div class="progress-percent" id="progressPercent">0%</div><p id="progressStage">準備しています</p></div></div>
-        <div class="card hidden" id="completeCard"><div class="card-body">
-          <div class="completion-mark">✓</div><div style="text-align:center"><h3 id="completeTitle">画面確認用の生成処理が完了しました</h3><p>Version 0.1.0では、実際のCSV・ZIPは作成されていません。</p></div>
-          <div id="completeSummary"></div>
-          <div class="message info"><span class="symbol">ℹ</span><div><strong>ダウンロード機能は次の開発段階で追加します</strong><p>このボタンは画面確認用の通知だけを表示します。</p></div></div>
-          <div style="text-align:center"><button class="btn btn-secondary" id="fakeDownload">もう一度ダウンロード</button></div>
-          <h3>次の作業</h3><div class="next-actions" id="nextActions"></div>
-        </div></div>
-        <div class="card hidden" id="historyCard"><div class="card-header"><div><h3>今回の作業履歴</h3><p>ブラウザを閉じるかリセットすると消えます。</p></div></div><div class="card-body"><ul class="history-list" id="historyList"></ul></div></div>
-      </section>
-    </main>
-
-    <aside class="summary-area"><div class="summary-card"><h2>現在の出力予定</h2><div class="summary-body" id="summaryBody"></div></div></aside>
-  </div>
-
-  <footer class="status-bar" id="statusBar" tabindex="0"><div class="status-main" id="statusMain">元CSV：未選択｜学校コードExcel：未選択</div><div class="status-state" id="statusState">状態：ファイルを選択してください</div></footer>
-  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
-
-  <div class="sidepanel-backdrop" id="sidepanelBackdrop">
-    <aside class="sidepanel" role="dialog" aria-modal="true" aria-labelledby="sidepanelTitle">
-      <div class="sidepanel-header"><h2 id="sidepanelTitle">使い方</h2><button class="close-btn" id="closeSidepanel" aria-label="閉じる">×</button></div>
-      <div id="helpContent">
-        <div class="message info"><span class="symbol">ℹ</span><div><strong id="currentHelpTitle">現在の操作：ファイル読込</strong><p id="currentHelpText">元データCSVと学校コードExcelを選択してください。</p></div></div>
-        <ol><li>元CSVと学校コードExcelを選択</li><li>データ確認結果を確認</li><li>教育事務所と市町村を選択</li><li>出力方法、抽出条件、ファイル名を設定</li><li>生成内容と件数を確認</li><li>ZIPまたはCSVを生成</li></ol>
-        <p><button class="btn btn-secondary" id="manualButton">詳しい操作マニュアルを開く</button></p>
-        <p class="field-hint">Version 0.1.0ではマニュアルPDFはまだ同梱されていません。</p>
-      </div>
-      <div id="noticeContent" class="hidden">
-        <ul><li>Version 0.1.0は画面確認用です。</li><li>選択したファイルの内容は解析しません。</li><li>正式版はブラウザ内でローカル処理し、外部送信しない構成とします。</li><li>元CSVと学校コードExcelは変更しません。</li><li>PC版Microsoft EdgeまたはGoogle Chromeを推奨します。</li></ul>
-        <details><summary>ツール情報</summary><div class="details">バージョン：0.1.0<br>開発状態：試作・検証版<br>更新日：2026/09/19<br>処理方式：UI確認用サンプル</div></details>
-      </div>
-    </aside>
-  </div>
-
-  <div class="modal-backdrop" id="resetModal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle"><h2 id="resetTitle">すべてリセットしますか？</h2><p>読み込んだファイル名、設定内容、今回の作業履歴がすべて画面から解除されます。</p><div class="modal-actions"><button class="btn btn-secondary" id="cancelReset">キャンセル</button><button class="btn btn-danger" id="confirmReset">すべてリセット</button></div></div></div>
-
-  <script>
-    (() => {
-      'use strict';
-      const schools = [
-        { code:'110101', name:'サンプル市立第一小学校', all:60, first:58, last:56 },
-        { code:'110102', name:'サンプル市立第二小学校', all:55, first:52, last:51 },
-        { code:'110103', name:'サンプル市立第三小学校', all:48, first:45, last:44 },
-        { code:'110104', name:'サンプル市立第四小学校', all:77, first:71, last:69 },
-        { code:'110105', name:'サンプル市立第五小学校', all:0, first:0, last:0 }
-      ];
-      const state = {
-        currentStep:1, unlocked:1, csvName:'', xlsxName:'', demo:false,
-        checkView:'normal', office:'', city:'', outputMode:'schools', condition:'all',
-        selectedSchool:'', prefix:'', survey:'サンプル調査_2026', suffix:'学校用', suffixTouched:false,
-        fullNames:false, reviewFilter:'all', importantWarning:false, history:[], previousSchool:''
-      };
-      const $ = s => document.querySelector(s);
-      const $$ = s => [...document.querySelectorAll(s)];
-      const conditionLabel = { all:'全データを残す', first:'初回受検フラグのみ', last:'最終回受検フラグのみ' };
-      const modeLabel = { schools:'学校ごと一括出力', city:'市町村ファイル出力', single:'1校指定出力' };
-      const modeShort = { schools:'学校別ZIP', city:'市町村用ZIP', single:'1校指定CSV' };
-      const invalidChars = /[\\/:*?"<>|]/;
-
-      function fmt(n){ return Number(n).toLocaleString('ja-JP') + '件'; }
-      function trimEdges(v){ return String(v ?? '').replace(/^[\s　]+|[\s　]+$/g,'').replace(/[\.\s　]+$/g,''); }
-      function cleanPart(v){ return trimEdges(v).replace(/^_+|_+$/g,''); }
-      function joinParts(parts){ return parts.map(cleanPart).filter(Boolean).join('_').replace(/_+/g, m => m); }
-      function cityName(){ return state.city === 'sampleCity' ? 'サンプル市' : state.city === 'sampleTown' ? 'サンプル町' : state.city === 'zeroTown' ? 'データなし町' : '未選択'; }
-      function officeName(){ return state.office === 'sample' ? 'サンプル教育事務所' : state.office === 'other' ? '別の教育事務所' : '未選択'; }
-      function currentSchools(){ return state.city === 'zeroTown' ? [{code:'190101',name:'データなし町立第一小学校',all:0,first:0,last:0},{code:'190102',name:'データなし町立第二小学校',all:0,first:0,last:0}] : schools; }
-      function valueFor(s){ return s[state.condition]; }
-      function targetSchools(){ return currentSchools(); }
-      function selectedSchool(){ return targetSchools().find(s=>s.code===state.selectedSchool) || null; }
-      function total(key=state.condition){ return targetSchools().reduce((a,s)=>a+s[key],0); }
-      function outputCount(){ const s=selectedSchool(); return state.outputMode==='single' ? (s ? valueFor(s) : 0) : total(); }
-      function outputSchoolCount(){ return targetSchools().filter(s=>valueFor(s)>0).length; }
-      function fileNameForSchool(s){ return joinParts([state.prefix,s.code,s.name,state.survey,state.suffix]) + '.csv'; }
-      function cityCsvName(){ return joinParts([state.prefix,cityName(),state.survey,state.suffix]) + '.csv'; }
-      function zipName(){ return joinParts([state.prefix,cityName(),state.survey,state.outputMode==='schools'?'学校別':'市町村用']) + '.zip'; }
-      function primaryFilename(){ if(state.outputMode==='schools') return fileNameForSchool(targetSchools().find(s=>s.all>0) || targetSchools()[0]); if(state.outputMode==='city') return cityCsvName(); const s=selectedSchool(); return s?fileNameForSchool(s):'学校を選択してください'; }
-
-      function showToast(text){
-        const t=document.createElement('div'); t.className='toast'; t.textContent='✓ '+text; $('#toastRegion').appendChild(t);
-        setTimeout(()=>t.remove(),3200);
-      }
-      function unlock(n){ state.unlocked=Math.max(state.unlocked,n); refreshNav(); }
-      function refreshNav(){
-        $$('.step-item').forEach(btn=>{
-          const n=Number(btn.dataset.step); btn.classList.toggle('active',n===state.currentStep); btn.classList.toggle('done',n<state.currentStep && n<=state.unlocked);
-          const locked=n>state.unlocked; btn.classList.toggle('locked',locked); btn.disabled=locked || state.currentStep===6 && !$('#completeCard').classList.contains('hidden')===false;
-          btn.querySelector('.step-icon').textContent=n<state.currentStep && n<=state.unlocked?'✓':String(n);
-        });
-      }
-      function gotoStep(n, focusId){
-        if(n>state.unlocked) return;
-        state.currentStep=n;
-        $$('.step-panel').forEach(p=>p.classList.remove('active'));
-        $('#stepPanel'+n).classList.add('active');
-        refreshNav(); updateSummary(); updateStatus(); updateHelp();
-        window.scrollTo({top:0,behavior:'smooth'});
-        if(focusId) setTimeout(()=>document.getElementById(focusId)?.focus(),180);
-      }
-      function updateHelp(){
-        const data={1:['現在の操作：ファイル読込','元データCSVと学校コードExcelを選択してください。'],2:['現在の操作：データ確認','ファイル構造、校種、学校コードの検査結果を確認してください。'],3:['現在の操作：対象選択','教育事務所と市町村を1つずつ選択してください。'],4:['現在の操作：出力設定','出力方法、抽出条件、ファイル名を設定してください。'],5:['現在の操作：内容確認','対象、件数、ファイル名を確認してください。'],6:['現在の操作：生成・完了','生成結果を確認し、次の作業を選択してください。']}[state.currentStep];
-        $('#currentHelpTitle').textContent=data[0]; $('#currentHelpText').textContent=data[1];
-      }
-      function updateStatus(){
-        let main='元CSV：'+(state.csvName||'未選択')+'｜学校コードExcel：'+(state.xlsxName||'未選択');
-        let status='状態：ファイルを選択してください';
-        if(state.demo){ main='校種：小学校｜対象：'+cityName()+'｜方法：'+modeShort[state.outputMode]+'｜出力予定：'+fmt(outputCount()); status='状態：画面確認中'; }
-        if(state.currentStep===2 && state.checkView==='error') status='エラー：未登録学校コードがあります｜STEP 2を確認';
-        $('#statusMain').textContent=main; $('#statusState').textContent=status;
-      }
-      function summaryMarkup(){
-        if(!state.demo) return '<div class="summary-item"><div class="summary-label">状態</div><div class="summary-value">ファイル未選択</div></div>';
-        return `<div class="summary-item"><div class="summary-label">校種</div><div class="summary-value">小学校</div></div>
-        <div class="summary-item"><div class="summary-label">対象</div><div class="summary-value">${cityName()}</div></div>
-        <div class="summary-item"><div class="summary-label">出力方法</div><div class="summary-value">${modeLabel[state.outputMode]}</div></div>
-        <div class="summary-item"><div class="summary-label">抽出条件</div><div class="summary-value">${conditionLabel[state.condition]}</div></div>
-        ${state.outputMode==='single'?`<div class="summary-item"><div class="summary-label">指定学校</div><div class="summary-value">${selectedSchool()?.name||'未選択'}</div></div>`:''}
-        <div class="summary-item"><div class="summary-label">出力予定</div><div class="summary-value emphasis">${fmt(outputCount())}</div></div>
-        <div class="summary-item"><div class="summary-label">CSV作成予定</div><div class="summary-value">${state.outputMode==='schools'?outputSchoolCount()+'ファイル':'1ファイル'}</div></div>`;
-      }
-      function updateSummary(){ $('#summaryBody').innerHTML=summaryMarkup(); $('#inlineSummary').innerHTML=summaryMarkup(); }
-
-      function handleFile(file, kind){
-        if(!file) return;
-        const expected=kind==='csv'?'.csv':'.xlsx';
-        if(!file.name.toLowerCase().endsWith(expected)){ showErrorToast('選択したファイルの形式が違います。'+expected+'を選択してください。'); return; }
-        const name=file.name; if(kind==='csv') state.csvName=name; else state.xlsxName=name;
-        const zone=$('#'+kind+'Drop'), meta=$('#'+kind+'Meta'); zone.classList.add('loaded'); meta.classList.remove('hidden');
-        meta.innerHTML='<strong>✓ ファイル選択を確認しました</strong><br>'+escapeHtml(name)+'<br><small>試作版では内容を解析しません。</small>';
-        showToast((kind==='csv'?'元データCSV':'学校コードExcel')+'を選択しました'); updateStatus();
-      }
-      function showErrorToast(text){ const t=document.createElement('div'); t.className='toast'; t.style.borderColor='#e8aaa5'; t.style.borderLeftColor='var(--red)'; t.style.color='var(--red)'; t.textContent='× '+text; $('#toastRegion').appendChild(t); setTimeout(()=>t.remove(),5000); }
-      function escapeHtml(s){ const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
-
-      function startDemo(){ state.demo=true; state.office='sample'; state.city='sampleCity'; state.outputMode='schools'; state.condition='all'; state.selectedSchool=''; state.prefix=''; state.survey='サンプル調査_2026'; state.suffix='学校用'; state.suffixTouched=false; unlock(2); renderCityControls(); updateStep4(); showToast('サンプルデータを読み込みました'); gotoStep(2); }
-
-      function setCheckView(view){
-        state.checkView=view; $$('#checkNormal,#checkWarning,#checkError').forEach(x=>x.classList.add('hidden')); $('#check'+view[0].toUpperCase()+view.slice(1)).classList.remove('hidden');
-        $$('[data-check-view]').forEach(b=>b.classList.toggle('active',b.dataset.checkView===view));
-        $('#toStep3').disabled=view==='error' || (view==='warning' && !$('#warningAck').checked);
-        updateStatus();
-      }
-
-      function renderCityControls(){
-        $('#officeSelect').value=state.office;
-        const city=$('#citySelect'); city.disabled=!state.office;
-        city.innerHTML=state.office==='sample'?'<option value="">選択してください</option><option value="sampleCity">サンプル市</option><option value="sampleTown">サンプル町</option><option value="zeroTown">データなし町</option>':'<option value="">選択してください</option><option value="zeroTown">データなし町</option>';
-        if([...city.options].some(o=>o.value===state.city)) city.value=state.city; else state.city='';
-        renderCityOverview();
-      }
-      function renderCityOverview(){
-        const shown=Boolean(state.city); $('#cityOverview').classList.toggle('hidden',!shown); $('#toStep4').disabled=!shown || total('all')===0;
-        if(!shown){ updateSummary(); updateStatus(); return; }
-        $('#cityHeading').textContent=cityName(); $('#citySubheading').textContent='教育事務所：'+officeName();
-        const ss=targetSchools(), dataSchools=ss.filter(s=>s.all>0).length;
-        $('#registeredCount').textContent=ss.length+'校'; $('#withDataCount').textContent=dataSchools+'校'; $('#withoutDataCount').textContent=(ss.length-dataSchools)+'校'; $('#cityDataCount').textContent=fmt(total('all'));
-        $('#zeroCityMessage').classList.toggle('hidden',total('all')!==0); renderSchoolTable('all'); updateSummary(); updateStatus();
-      }
-      function renderSchoolTable(filter){
-        const rows=targetSchools().filter(s=>filter==='all'||filter==='data'&&s.all>0||filter==='zero'&&s.all===0);
-        $('#schoolTableBody').innerHTML=rows.map(s=>`<tr><td><span class="status-pill ${s.all?'good':'zero'}">${s.all?'データあり':'データなし'}</span></td><td>${s.code}</td><td>${s.name}</td><td class="num">${fmt(s.all)}</td></tr>`).join('');
-        $$('[data-school-filter]').forEach(b=>b.classList.toggle('active',b.dataset.schoolFilter===filter));
-      }
-
-      function updateStep4(){
-        $$('.option-card').forEach(c=>c.classList.toggle('selected',c.dataset.outputMode===state.outputMode));
-        $('#singleSchoolCard').classList.toggle('hidden',state.outputMode!=='single');
-        const schoolSelect=$('#schoolSelect');
-        schoolSelect.innerHTML='<option value="">選択してください</option>'+targetSchools().map(s=>`<option value="${s.code}" ${s.all===0?'disabled':''}>${s.code}　${s.name}　${s.all}件${s.all===0?'・選択不可':''}</option>`).join('');
-        schoolSelect.value=state.selectedSchool;
-        const context=state.outputMode==='single' && selectedSchool()?selectedSchool():null;
-        $$('[data-condition-count]').forEach(el=>{ const key=el.dataset.conditionCount; el.textContent=fmt(context?context[key]:total(key)); });
-        $$('input[name="condition"]').forEach(r=>r.checked=r.value===state.condition);
-        $$('.radio-option').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));
-        $('#prefixInput').value=state.prefix; $('#surveyInput').value=state.survey; $('#suffixInput').value=state.suffix;
-        validateFilename(); updateSummary(); updateStatus();
-      }
-      function validateFilename(){
-        const rawSurvey=$('#surveyInput')?.value ?? state.survey; state.prefix=$('#prefixInput')?.value ?? state.prefix; state.survey=rawSurvey; state.suffix=$('#suffixInput')?.value ?? state.suffix;
-        let error=''; if(!trimEdges(rawSurvey)) error='調査名を入力してください。'; else if(invalidChars.test(rawSurvey)||invalidChars.test(state.prefix)||invalidChars.test(state.suffix)) error='使用できない文字（\\ / : * ? " < > |）が含まれています。';
-        const e=$('#surveyError'); if(e){ e.textContent=error; e.classList.toggle('hidden',!error); $('#surveyInput').classList.toggle('invalid',Boolean(error)); }
-        const preview=primaryFilename(); $('#filenamePreview').textContent=preview;
-        let extras=''; if(state.outputMode==='schools') extras='<li>例：'+escapeHtml(fileNameForSchool(targetSchools().find(s=>s.code==='110102')))+'</li><li>ZIP：'+escapeHtml(zipName())+'</li>'; else if(state.outputMode==='city') extras='<li>ZIP：'+escapeHtml(zipName())+'</li>'; else extras='<li>この出力方法ではZIPを使用しません。</li>'; $('#additionalPreviews').innerHTML=extras;
-        const len=preview.length; $('#nameLength').textContent='プレビュー全体：'+len+'文字'+(len>=150?'　ファイル名が長くなっています。':'');
-        $('#toStep5').disabled=Boolean(error)||state.outputMode==='single'&&!selectedSchool()||outputCount()===0;
-        return !error;
-      }
-      function setOutputMode(mode){
-        state.outputMode=mode;
-        if(!state.suffixTouched) state.suffix=mode==='city'?'市町村用':'学校用';
-        if(mode!=='single') state.selectedSchool='';
-        updateStep4();
-      }
-
-      function renderReview(){
-        const s=selectedSchool();
-        $('#reviewTarget').innerHTML=`<div class="metric-grid"><div class="metric"><div class="metric-label">校種</div><div class="metric-value">小学校</div></div><div class="metric"><div class="metric-label">教育事務所</div><div class="metric-value">${officeName()}</div></div><div class="metric"><div class="metric-label">市町村</div><div class="metric-value">${cityName()}</div></div><div class="metric"><div class="metric-label">登録学校</div><div class="metric-value">${targetSchools().length}校</div></div></div>`;
-        const base=state.outputMode==='single'&&s?s.all:total('all'), out=outputCount();
-        $('#reviewSettings').innerHTML=`<div class="metric-grid"><div class="metric"><div class="metric-label">出力方法</div><div class="metric-value">${modeLabel[state.outputMode]}</div></div><div class="metric"><div class="metric-label">抽出条件</div><div class="metric-value">${conditionLabel[state.condition]}</div></div><div class="metric"><div class="metric-label">入力件数</div><div class="metric-value">${fmt(base)}</div></div><div class="metric"><div class="metric-label">出力件数</div><div class="metric-value">${fmt(out)}</div></div></div>${s?'<p><strong>指定学校：</strong>'+s.code+'　'+s.name+'</p>':''}`;
-        $('#reviewFilename').innerHTML='<div class="preview-box"><div class="preview-label">出力名</div><div class="preview-name">'+escapeHtml(state.outputMode==='single'?fileNameForSchool(s):zipName())+'</div></div>';
-        renderReviewTable(state.reviewFilter);
-        $('#integrityText').textContent=`入力 ${fmt(base)} ＝ 除外 ${fmt(base-out)} ＋ 出力予定 ${fmt(out)}。差異は0件です。`;
-        const dl=state.outputMode==='single'?fileNameForSchool(s):zipName(); $('#downloadPreview').textContent=dl;
-        $('#downloadContents').innerHTML=state.outputMode==='schools'?`<p>ZIPの内容：学校別CSV ${outputSchoolCount()}ファイル、処理結果一覧CSV 1ファイル</p>`:state.outputMode==='city'?'<p>ZIPの内容：市町村CSV 1ファイル、処理結果一覧CSV 1ファイル</p>':'<p>ZIPは使用せず、学校CSVを直接出力する想定です。</p>';
-        $('#generateButton').textContent=state.outputMode==='single'?'CSVを出力する':'ZIPを生成する';
-        $('#reviewWarning').classList.toggle('hidden',!state.importantWarning);
-        $('#generateButton').disabled=state.importantWarning&&!$('#reviewAck').checked;
-        updateSummary(); updateStatus();
-      }
-      function reviewStatus(s){ if(s.all===0) return 'sourceZero'; if(valueFor(s)===0) return 'conditionZero'; return 'output'; }
-      function renderReviewTable(filter){
-        let rows=state.outputMode==='single'?[selectedSchool()].filter(Boolean):targetSchools(); rows=rows.filter(s=>filter==='all'||reviewStatus(s)===filter);
-        $('#reviewTableBody').innerHTML=rows.map(s=>{ const st=reviewStatus(s), label=st==='output'?(state.outputMode==='city'?'収録予定':'出力予定'):st==='sourceZero'?'元データなし':'選択条件では0件'; const cls=st==='output'?'good':st==='sourceZero'?'zero':'warn'; const fn=st==='output'?(state.outputMode==='city'?cityCsvName():fileNameForSchool(s)):''; const shown=state.fullNames?fn:(fn.length>36?fn.slice(0,34)+'…':fn); return `<tr><td><span class="status-pill ${cls}">${label}</span></td><td>${s.code}</td><td>${s.name}</td><td class="num">${fmt(s.all)}</td><td class="num">${fmt(valueFor(s))}</td><td title="${escapeHtml(fn)}">${escapeHtml(shown)}</td></tr>`; }).join('');
-        $$('[data-review-filter]').forEach(b=>b.classList.toggle('active',b.dataset.reviewFilter===filter));
-      }
-
-      function beginGeneration(){
-        unlock(6); gotoStep(6); $('#generatingCard').classList.remove('hidden'); $('#completeCard').classList.add('hidden'); $('#historyCard').classList.toggle('hidden',state.history.length===0);
-        let p=0; const stages=['対象データを抽出しています','CSVデータを作成しています','処理結果一覧を作成しています','ファイルを確定しています'];
-        $('#progressTitle').textContent=state.outputMode==='single'?'CSVファイルを作成しています':'ZIPファイルを作成しています';
-        const timer=setInterval(()=>{ p=Math.min(100,p+8+Math.round(Math.random()*8)); $('#progressBar').style.width=p+'%'; $('#progressPercent').textContent=p+'%'; $('#progressStage').textContent=stages[Math.min(stages.length-1,Math.floor(p/26))]; if(state.outputMode==='schools') $('#progressDetail').textContent=Math.min(outputSchoolCount(),Math.ceil(outputSchoolCount()*p/100))+' / '+outputSchoolCount()+'校'; if(p>=100){clearInterval(timer);setTimeout(completeGeneration,350);} },180);
-      }
-      function completeGeneration(){
-        $('#generatingCard').classList.add('hidden'); $('#completeCard').classList.remove('hidden');
-        const s=selectedSchool(), file=state.outputMode==='single'?fileNameForSchool(s):zipName();
-        $('#completeSummary').innerHTML=`<div class="preview-box"><div class="preview-label">画面確認用の出力結果</div><div class="preview-name">${escapeHtml(file)}</div><p>対象：${cityName()}${s?' / '+s.name:''}<br>抽出条件：${conditionLabel[state.condition]}<br>出力予定：${fmt(outputCount())}</p></div>`;
-        state.history.push({time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),text:`${cityName()}　${modeShort[state.outputMode]}　${fmt(outputCount())}`}); renderHistory(); renderNextActions(); showToast('画面確認用の生成処理が完了しました'); refreshNav();
-      }
-      function renderHistory(){ $('#historyCard').classList.remove('hidden'); $('#historyList').innerHTML=state.history.map(h=>`<li><span class="history-time">${h.time}</span><span>${h.text}</span></li>`).join(''); }
-      function renderNextActions(){
-        const buttons=[];
-        if(state.outputMode==='single') buttons.push(['同じ市町村から別の学校を選ぶ','anotherSchool']);
-        buttons.push(['同じ条件で別の市町村を選ぶ','anotherCity']);
-        if(state.outputMode!=='schools') buttons.push(['同じ市町村の学校別ZIPを作る','toSchools']);
-        if(state.outputMode!=='city') buttons.push(['同じ市町村の市町村用ZIPを作る','toCity']);
-        if(state.outputMode!=='single') buttons.push(['同じ市町村から1校を指定する','toSingle']);
-        buttons.push(['出力設定を変更する','editOutput'],['すべてリセット','reset']);
-        $('#nextActions').innerHTML=buttons.map(([l,a],i)=>`<button class="btn ${i===0?'btn-primary':'btn-secondary'}" data-next-action="${a}">${l}</button>`).join('');
-      }
-      function handleNext(action){
-        if(action==='reset'){openReset();return;}
-        if(action==='anotherCity'){ state.city=''; state.selectedSchool=''; renderCityControls(); unlock(3); gotoStep(3,'citySelect'); return; }
-        if(action==='anotherSchool'){ state.previousSchool=selectedSchool()?.name||''; state.selectedSchool=''; updateStep4(); $('#previousSchoolNote').classList.toggle('hidden',!state.previousSchool); $('#previousSchoolText').textContent=state.previousSchool; unlock(4); gotoStep(4,'schoolSelect'); return; }
-        if(action==='toSchools') setOutputMode('schools');
-        if(action==='toCity') setOutputMode('city');
-        if(action==='toSingle') setOutputMode('single');
-        unlock(4); gotoStep(4, action==='toSingle'?'schoolSelect':undefined);
-      }
-
-      function openPanel(type){ $('#sidepanelBackdrop').classList.add('open'); $('#helpContent').classList.toggle('hidden',type!=='help'); $('#noticeContent').classList.toggle('hidden',type!=='notice'); $('#sidepanelTitle').textContent=type==='help'?'使い方':'注意事項'; $('#closeSidepanel').focus(); }
-      function closePanel(){ $('#sidepanelBackdrop').classList.remove('open'); }
-      function openReset(){ $('#resetModal').classList.add('open'); $('#cancelReset').focus(); }
-      function resetAll(){ location.reload(); }
-
-      $$('[data-open-panel]').forEach(b=>b.addEventListener('click',()=>openPanel(b.dataset.openPanel)));
-      $('#closeSidepanel').addEventListener('click',closePanel); $('#sidepanelBackdrop').addEventListener('click',e=>{if(e.target===e.currentTarget)closePanel();});
-      $('#manualButton').addEventListener('click',()=>showErrorToast('操作マニュアルPDFはまだ同梱されていません。'));
-      $('#resetTop').addEventListener('click',openReset); $('#cancelReset').addEventListener('click',()=>$('#resetModal').classList.remove('open')); $('#confirmReset').addEventListener('click',resetAll);
-      $('#resetModal').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
-      document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePanel();$('#resetModal').classList.remove('open');}});
-
-      $$('[data-pick]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.pick+'Input').click()));
-      $('#csvInput').addEventListener('change',e=>handleFile(e.target.files[0],'csv')); $('#xlsxInput').addEventListener('change',e=>handleFile(e.target.files[0],'xlsx'));
-      ['csv','xlsx'].forEach(kind=>{ const z=$('#'+kind+'Drop'); ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('dragover');})); ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('dragover');})); z.addEventListener('drop',e=>{if(e.dataTransfer.files.length!==1){showErrorToast('ファイルは1つずつドロップしてください。');return;}handleFile(e.dataTransfer.files[0],kind);}); });
-      $('#startDemo').addEventListener('click',startDemo);
-      $$('.step-item').forEach(b=>b.addEventListener('click',()=>gotoStep(Number(b.dataset.step))));
-      $$('[data-goto]').forEach(b=>b.addEventListener('click',()=>gotoStep(Number(b.dataset.goto))));
-      $$('[data-check-view]').forEach(b=>b.addEventListener('click',()=>setCheckView(b.dataset.checkView)));
-      $('#warningAck').addEventListener('change',()=>setCheckView('warning'));
-      $('#toStep3').addEventListener('click',()=>{unlock(3);gotoStep(3);});
-      $('#officeSelect').addEventListener('change',e=>{state.office=e.target.value;state.city='';renderCityControls();});
-      $('#citySelect').addEventListener('change',e=>{state.city=e.target.value;state.selectedSchool='';renderCityOverview();});
-      $$('[data-school-filter]').forEach(b=>b.addEventListener('click',()=>renderSchoolTable(b.dataset.schoolFilter)));
-      $('#toStep4').addEventListener('click',()=>{unlock(4);updateStep4();gotoStep(4);});
-      $$('[data-output-mode]').forEach(c=>c.addEventListener('click',()=>setOutputMode(c.dataset.outputMode)));
-      $('#schoolSelect').addEventListener('change',e=>{state.selectedSchool=e.target.value;updateStep4();});
-      $$('input[name="condition"]').forEach(r=>r.addEventListener('change',e=>{state.condition=e.target.value;updateStep4();}));
-      ['prefixInput','surveyInput','suffixInput'].forEach(id=>$('#'+id).addEventListener('input',()=>{ if(id==='suffixInput')state.suffixTouched=true; validateFilename(); updateSummary(); updateStatus(); }));
-      $('#toStep5').addEventListener('click',()=>{if(!validateFilename())return;state.prefix=trimEdges(state.prefix);state.survey=trimEdges(state.survey);state.suffix=trimEdges(state.suffix);unlock(5);renderReview();gotoStep(5);});
-      $$('[data-edit]').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.edit==='target')gotoStep(3,'officeSelect'); else if(b.dataset.edit==='name')gotoStep(4,'surveyInput'); else gotoStep(4); }));
-      $$('[data-review-filter]').forEach(b=>b.addEventListener('click',()=>{state.reviewFilter=b.dataset.reviewFilter;renderReviewTable(state.reviewFilter);}));
-      $('#toggleFullNames').addEventListener('click',()=>{state.fullNames=!state.fullNames;$('#toggleFullNames').textContent=state.fullNames?'ファイル名を省略表示':'全ファイル名を表示';renderReviewTable(state.reviewFilter);});
-      $('#reviewAck').addEventListener('change',()=>$('#generateButton').disabled=state.importantWarning&&!$('#reviewAck').checked);
-      $('#generateButton').addEventListener('click',beginGeneration);
-      $('#fakeDownload').addEventListener('click',()=>showToast('試作版のため実ファイルはダウンロードされません。'));
-      $('#nextActions').addEventListener('click',e=>{const b=e.target.closest('[data-next-action]');if(b)handleNext(b.dataset.nextAction);});
-      $('#statusBar').addEventListener('click',()=>{if(state.checkView==='error')gotoStep(2);});
-      window.addEventListener('beforeunload',e=>{if(state.demo||state.csvName||state.xlsxName){e.preventDefault();e.returnValue='';}});
-
-      updateSummary(); updateStatus(); updateHelp(); refreshNav();
-    })();
-  </script>
-</body>
-</html>
+<header class="header"><div class="header-in"><div><h1>学校・市町村別CSV分割ツール <span class="badge">試作・検証版</span></h1><div class="sub">調査用児童生徒番号をもとに、ローデータを学校別または市町村別に抽出します。 Version 0.3.2 / 2026/09/19</div></div><div class="actions"><button class="btn secondary" data-side="help">使い方</button><button class="btn secondary" data-side="notice">注意事項</button><button class="btn danger" id="resetBtn">すべてリセット</button></div></div></header>
+<div class="layout"><nav class="nav"><div class="nav-title">作業ステップ</div>
+<button class="step active" data-step="1"><span class="n">1</span><span><small>STEP 1</small><strong>ファイル読込</strong></span></button>
+<button class="step" data-step="2" disabled><span class="n">2</span><span><small>STEP 2</small><strong>データ確認</strong></span></button>
+<button class="step" data-step="3" disabled><span class="n">3</span><span><small>STEP 3</small><strong>対象選択</strong></span></button>
+<button class="step" data-step="4" disabled><span class="n">4</span><span><small>STEP 4</small><strong>出力設定</strong></span></button>
+<button class="step" data-step="5" disabled><span class="n">5</span><span><small>STEP 5</small><strong>内容確認</strong></span></button>
+<button class="step" data-step="6" disabled><span class="n">6</span><span><small>STEP 6</small><strong>生成・完了</strong></span></button></nav>
+<main class="main"><div class="banner"><b>△</b><div><strong>Version 0.3.2は実ファイル読込・照合版です</strong><br>全STEPが実データで動作します。学校別CSV、市町村CSV、1校指定CSV、処理結果一覧、ZIPを生成できます。</div></div>
+<section class="panel active" id="p1"><div class="title"><small>STEP 1</small><h2>ファイル読込</h2><p>CSVと学校コードExcelを選択し、ブラウザ内で構造を検査します。</p></div><div class="drop-grid">
+<div class="drop" id="csvDrop"><div class="drop-icon" style="font-size:34px;color:var(--blue)">⇩</div><h3 id="csvTitle">元データCSV</h3><div class="file-role">児童生徒の受検結果を含むローデータ</div><p class="drop-guide">ここへドラッグ＆ドロップ</p><p class="drop-guide">または</p><button class="btn secondary" data-pick="csv" id="csvPickBtn">元データCSVを選択</button><input id="csvInput" type="file" accept=".csv" hidden><p class="drop-guide">対応形式：.csv</p><div class="meta hidden" id="csvMeta"></div></div>
+<div class="drop" id="xlsxDrop"><div class="drop-icon" style="font-size:34px;color:var(--blue)">⇩</div><h3 id="xlsxTitle">学校コードExcel</h3><div class="file-role">教育事務所、市町村、学校名を対応づけるコード表</div><p class="drop-guide">ここへドラッグ＆ドロップ</p><p class="drop-guide">または</p><button class="btn secondary" data-pick="xlsx" id="xlsxPickBtn">学校コードExcelを選択</button><input id="xlsxInput" type="file" accept=".xlsx" hidden><p class="drop-guide">対応形式：.xlsx</p><div class="meta hidden" id="xlsxMeta"></div></div></div><div class="readybox partial" id="readyBox"><div class="ready-line"><strong id="readyTitle">準備状況　0 / 2ファイル</strong><span id="readyText">2つのファイルを選択してください。</span></div><div class="ready-track"><div class="ready-bar" id="readyBar"></div></div></div>
+<div class="msg info"><b>ℹ</b><div><strong>ローカル処理</strong><br>ファイルは外部へ送信しません。両方を選択すると解析ボタンが有効になります。</div></div><div class="row-actions"><span></span><div class="right"><button class="btn primary" id="parseBtn" disabled>ファイルを確認して次へ</button></div></div></section>
+<section class="panel" id="p2"><div class="title"><small>STEP 2</small><h2>データ確認</h2><p>ファイル構造、校種、学校コードの照合結果を確認します。</p></div><div class="target-files" id="targetFiles"><div class="target-file"><small>元データCSV</small><b id="targetCsv">未選択</b></div><div class="target-file"><small>学校コードExcel</small><b id="targetXlsx">未選択</b></div></div><div id="checkArea"></div><div class="row-actions"><button class="btn secondary" data-go="1">ファイル選択に戻る</button><div class="right"><button class="btn primary" id="to3" disabled>対象市町村の選択へ</button></div></div></section>
+<section class="panel" id="p3"><div class="title"><small>STEP 3</small><h2>対象選択</h2><p>教育事務所と市町村を選択し、登録学校と実データ件数を確認します。</p></div><div class="card"><div class="card-head"><h3>教育事務所・市町村</h3><p>市町村欄にはコード表の「教育委員会名」を表示します。</p></div><div class="card-body"><div class="form-grid"><div class="field"><label>教育事務所</label><select id="office"><option value="">選択してください</option></select></div><div class="field"><label>市町村</label><select id="city" disabled><option value="">教育事務所を先に選択</option></select></div></div></div></div><div class="card hidden" id="cityCard"><div class="card-head"><h3 id="cityTitle"></h3><p id="citySub"></p></div><div class="card-body"><div class="metrics" id="cityMetrics"></div><div class="chips" style="margin-top:14px"><b>表示：</b><button class="chip active" data-filter="all">すべて</button><button class="chip" data-filter="data">データあり</button><button class="chip" data-filter="zero">データなし</button></div><div class="tablebox"><table><thead><tr><th>状態</th><th>学校コード</th><th>学校名</th><th class="num">全件数</th></tr></thead><tbody id="schoolRows"></tbody></table></div><div class="msg info hidden" id="zeroMsg"><b>ℹ</b><div><strong>この市町村には出力可能なデータがありません</strong><br>学校コード表には登録がありますが、元CSVに該当データがありません。</div></div></div></div><div class="row-actions"><button class="btn secondary" data-go="2">データ確認に戻る</button><div class="right"><button class="btn primary" id="to4" disabled>出力設定へ進む</button></div></div></section>
+<section class="panel" id="p4"><div class="title"><small>STEP 4</small><h2>出力設定</h2><p>実データから算出した件数で、出力方法と抽出条件を確認します。</p></div><div class="inline-summary summary"><h3>現在の出力予定</h3><div class="summary-body" id="inlineSum"></div></div><div class="card"><div class="card-head"><h3>4-1 出力方法</h3></div><div class="card-body"><div class="options"><button class="option sel" data-mode="schools"><h4>学校ごと一括出力</h4><p>学校別CSVをZIPにまとめます。</p></button><button class="option" data-mode="city"><h4>市町村ファイル出力</h4><p>市町村全体を1つのCSVにします。</p></button><button class="option" data-mode="single"><h4>1校指定出力</h4><p>指定した1校をCSV出力します。</p></button></div></div></div><div class="card hidden" id="singleCard"><div class="card-head"><h3>4-2 出力する学校</h3></div><div class="card-body"><select id="schoolSelect"></select></div></div><div class="card"><div class="card-head"><h3>4-3 抽出条件</h3></div><div class="card-body"><div class="radio-list" id="conditions"></div></div></div><div class="card"><div class="card-head"><h3>4-4 ファイル名設定</h3></div><div class="card-body"><div class="field"><label>先頭文字（任意）</label><input id="prefix"></div><div class="field"><label>調査名（必須）</label><input id="survey"></div><div class="field"><label>末尾文字（任意）</label><input id="suffix" value="学校用"></div><div class="preview"><small>プレビュー</small><div class="mono" id="preview"></div></div><div id="nameValidation" class="validation normal">ファイル名を確認しています。</div></div></div><div class="row-actions"><button class="btn secondary" data-go="3">対象選択に戻る</button><div class="right"><button class="btn primary" id="to5">設定内容を確認する</button></div></div></section>
+<section class="panel" id="p5"><div class="title"><small>STEP 5</small><h2>内容確認</h2><p>Version 0.3.2では実データ件数を確認できますが、出力はまだ疑似動作です。</p></div><div id="review"></div><div class="row-actions"><button class="btn secondary" data-go="4">出力設定に戻る</button><div class="right"><button class="btn primary" id="fakeGenerate">ファイルを生成する</button></div></div></section>
+<section class="panel" id="p6"><div class="title"><small>STEP 6</small><h2>生成・完了</h2><p>CSVまたはZIPを生成し、ダウンロード結果と次の操作を表示します。</p></div><div class="card"><div class="card-body" style="text-align:center"><h3>CSV・ZIPを生成しています</h3><div class="progress"><div class="bar" id="bar"></div></div><p id="prog">準備中</p><div id="done" class="hidden"><div class="msg ok"><b>✓</b><div><strong>ファイル生成とダウンロードを開始しました</strong><br id="doneText">出力結果を確認してください。</div></div><div id="completeSummary"></div><div class="right" style="justify-content:center"><button class="btn secondary" id="redownload">もう一度ダウンロード</button></div><h3 style="text-align:left">次の作業</h3><div class="next-grid" id="nextActions"></div><div class="history" id="historyBox"><h3>今回の作業履歴</h3><ul id="historyList"></ul></div></div></div></div></section>
+</main><aside class="summary-wrap"><div class="summary"><h3>現在の出力予定</h3><div class="summary-body" id="sum"></div></div></aside></div>
+<footer class="status"><div id="statusMain">元CSV：未選択｜学校コードExcel：未選択</div><div id="statusState">状態：ファイルを選択してください</div></footer><div class="toastbox" id="toasts"></div>
+<div class="side-bg" id="sideBg"><aside class="side"><div class="side-head"><h2 id="sideTitle">使い方</h2><button class="close" id="sideClose">×</button></div><div id="help"><ol><li>CSVと学校コードExcelを選択</li><li>構造と照合結果を確認</li><li>教育事務所・市町村・学校件数を確認</li><li>出力設定と予定件数を確認</li></ol></div><div id="notice" class="hidden"><ul><li>ファイルはブラウザ内だけで処理します。</li><li>元ファイルは変更しません。</li><li>Version 0.3.2ではCSV・ZIP出力は未実装です。学校コードExcelの特殊区分はツール内で補完し、6桁以外のコードは対象外として無視します。</li><li>PC版EdgeまたはChromeを推奨します。</li></ul></div></aside></div>
+<div class="modal-bg" id="changeBg"><div class="modal"><h2 id="changeTitle">ファイルを変更しますか？</h2><p>対象市町村、出力設定、作業履歴がリセットされます。</p><div class="right"><button class="btn secondary" id="cancelChange">キャンセル</button><button class="btn danger" id="confirmChange">ファイルを変更</button></div></div></div>
+<div class="modal-bg" id="resetBg"><div class="modal"><h2>すべてリセットしますか？</h2><p>読み込んだファイルと設定を解除します。</p><div class="right"><button class="btn secondary" id="cancelReset">キャンセル</button><button class="btn danger" id="confirmReset">すべてリセット</button></div></div></div>
+<script src="./assets/xlsx.full.min.js"></script>
+<script src="./assets/jszip.min.js"></script>
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const st={step:1,unlocked:1,csvFile:null,xlsxFile:null,csvName:'',xlsxName:'',busy:false,parsed:false,csv:null,master:null,officeMap:new Map(),schoolType:'',office:'',city:'',mode:'schools',condition:'all',school:'',prefix:'',survey:'',suffix:'学校用',masterFallbacks:[],masterIgnoredCodes:[],rowsByCode:new Map(),lastBlob:null,lastFilename:'',history:[],masterSameCodes:[],nameCheck:null,criticalAck:false,pendingKind:'',pendingFile:null};
+const control={id:'調査用児童生徒番号_調査用児童生徒番号',idPart:'調査用児童生徒番号',first:'初回受検フラグ',last:'最終回受検フラグ'};
+const modeName={schools:'学校ごと一括出力',city:'市町村ファイル出力',single:'1校指定出力'},condName={all:'全データを残す',first:'初回受検フラグのみ',last:'最終回受検フラグのみ'};
+const trim=v=>String(v??'').replace(/^[\s　]+|[\s　]+$/g,''),esc=v=>{const d=document.createElement('div');d.textContent=String(v??'');return d.innerHTML},fmt=n=>Number(n||0).toLocaleString('ja-JP')+'件';
+function toast(t,bad=false){const x=document.createElement('div');x.className='toast';if(bad){x.style.borderColor='#e4aaa5';x.style.borderLeftColor='var(--red)';x.style.color='var(--red)'}x.textContent=(bad?'× ':'✓ ')+t;$('#toasts').append(x);setTimeout(()=>x.remove(),bad?5200:3000)}
+function bytes(n){return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'}
+function schools(){return st.officeMap.get(st.office)?.get(st.city)||[]}function selected(){return schools().find(x=>x.code===st.school)||null}function total(k=st.condition){return schools().reduce((a,x)=>a+(x[k]||0),0)}function output(){return st.mode==='single'?(selected()?.[st.condition]||0):total()}function parts(a){return a.map(v=>trim(v).replace(/^_+|_+$/g,'')).filter(Boolean).join('_')}function schoolFile(s){return parts([st.prefix,s.code,s.name,st.survey,st.suffix])+'.csv'}function cityFile(){return parts([st.prefix,st.city,st.survey,st.suffix])+'.csv'}function zipFile(){return parts([st.prefix,st.city,st.survey,st.mode==='schools'?'学校別':'市町村用'])+'.zip'}
+function sanitizeMaster(v){return trim(v).replace(/[\\/:*?"<>|]/g,c=>({'\\':'￥','/':'／',':':'：','*':'＊','?':'？','"':'”','<':'＜','>':'＞','|':'｜'}[c])).replace(/[.\s]+$/g,'')}
+function userPart(v){return trim(v).replace(/^_+|_+$/g,'')}
+function buildName(a){return a.map(userPart).filter(Boolean).join('_')}
+function safeSchoolFile(x){return buildName([st.prefix,x.code,sanitizeMaster(x.name),st.survey,st.suffix])+'.csv'}
+function safeCityFile(){return buildName([st.prefix,sanitizeMaster(st.city),st.survey,st.suffix])+'.csv'}
+function safeZipFile(){return buildName([st.prefix,sanitizeMaster(st.city),st.survey,st.mode==='schools'?'学校別':'市町村用'])+'.zip'}
+function userInputError(){const bad=/[\\/:*?"<>|]/;if(!trim(st.survey))return '調査名を入力してください。';for(const [label,v]of[['先頭文字',st.prefix],['調査名',st.survey],['末尾文字',st.suffix]])if(bad.test(v))return `${label}に使用できない文字（\\ / : * ? " < > |）が含まれています。`;return''}
+function outputNames(){if(st.mode==='single')return selected()?[safeSchoolFile(selected())]:[];if(st.mode==='city')return[safeCityFile(),'処理結果一覧.csv'];return schools().filter(x=>(x[st.condition]||0)>0).map(safeSchoolFile).concat('処理結果一覧.csv')}
+function validateNames(){const err=userInputError(),names=outputNames(),dup=names.find((x,i)=>names.indexOf(x)!==i),longest=names.reduce((a,b)=>b.length>a.length?b:a,'');let level='normal',message='ファイル名に問題はありません。',ok=true;if(err){level='error';message=err;ok=false}else if(dup){level='error';message='同じファイル名が複数生成されます：'+dup;ok=false}else if(longest.length>=240){level='error';message=`ファイル名が長すぎます（最長${longest.length}文字）。240文字未満になるよう調査名等を短くしてください。`;ok=false}else if(longest.length>=200){level='warning';message=`非常に長いファイル名があります（最長${longest.length}文字）。内容確認画面で確認が必要です。`}else if(longest.length>=150){level='warning';message=`ファイル名が長くなっています（最長${longest.length}文字）。調査名を短くすることを推奨します。`}const masterChanged=schools().some(x=>sanitizeMaster(x.name)!==trim(x.name))||sanitizeMaster(st.city)!==trim(st.city);st.nameCheck={ok,level,message,longest,longestLength:longest.length,critical:longest.length>=200&&longest.length<240,masterChanged};return st.nameCheck}
+function csvEscape(v){const x=String(v??'');return /[",\r\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x}
+function makeCsv(rows){const lines=[st.csv.h,...rows].map(r=>r.map(csvEscape).join(','));return '\ufeff'+lines.join('\r\n')+'\r\n'}
+function conditionPass(row){if(st.condition==='all')return true;const idx=st.condition==='first'?st.csv.first:st.csv.last;return idx>=0&&trim(row[idx])==='○'}
+function rowsForCode(code){return (st.rowsByCode.get(code)||[]).map(i=>st.csv.data[i]).filter(conditionPass)}
+function rowsForCity(){const codes=new Set(schools().map(x=>x.code));return st.csv.data.filter(r=>{const id=trim(r[st.csv.id]);return /^\d{6}/.test(id)&&codes.has(id.slice(0,6))&&conditionPass(r)})}
+function localDateTime(){const d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}/${z(d.getMonth()+1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`}
+function remarksFor(x){const r=[];if(st.masterFallbacks.some(f=>f.code===x.code))r.push('教育委員会名を特殊区分として自動補完');if(sanitizeMaster(x.name)!==trim(x.name)||sanitizeMaster(st.city)!==trim(st.city))r.push('ファイル名用に禁止文字を全角へ置換');if(st.masterSameCodes.includes(x.code))r.push('学校コードマスターに同一内容の重複あり');return r.join('、')}
+function resultRows(outputName){const dt=localDateTime();return schools().map(x=>{const out=x[st.condition]||0,state=x.all===0?'元データなし':out===0?'選択条件では0件':st.mode==='city'?'市町村CSVに収録':'出力済み',fn=out>0?(st.mode==='city'?outputName:st.mode==='schools'?safeSchoolFile(x):outputName):'';return[dt,st.schoolType,st.office,st.city,x.code,x.name,x.all,out,x.all-out,condName[st.condition],state,fn,remarksFor(x)]})}
+function makeResultCsv(outputName){const h=['処理日時','校種','教育事務所','市町村','学校コード','学校名','元データ件数','出力件数','除外件数','抽出条件','出力状態','出力ファイル名','備考'];return '\ufeff'+[h,...resultRows(outputName)].map(r=>r.map(csvEscape).join(',')).join('\r\n')+'\r\n'}
+function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)}
+function updateNav(){$$('.step').forEach(b=>{const n=+b.dataset.step;b.disabled=n>st.unlocked||st.busy;b.classList.toggle('active',n===st.step);b.classList.toggle('done',n<st.step&&n<=st.unlocked);b.querySelector('.n').textContent=n<st.step&&n<=st.unlocked?'✓':n})}function unlock(n){st.unlocked=Math.max(st.unlocked,n);updateNav()}function go(n){if(n>st.unlocked||st.busy)return;st.step=n;$$('.panel').forEach(p=>p.classList.remove('active'));$('#p'+n).classList.add('active');updateNav();updateSummary();window.scrollTo({top:0,behavior:'smooth'})}
+function updateStatus(){if(!st.parsed){$('#statusMain').textContent='元CSV：'+(st.csvName||'未選択')+'｜学校コードExcel：'+(st.xlsxName||'未選択');$('#statusState').textContent=st.busy?'状態：解析しています':'状態：ファイルを選択してください'}else{$('#statusMain').textContent='校種：'+st.schoolType+'｜対象：'+(st.city||'未選択')+'｜方法：'+modeName[st.mode]+'｜出力予定：'+fmt(output());$('#statusState').textContent='状態：実データ照合済み'}}function summary(){if(!st.parsed)return'<div class="sumitem"><small>状態</small><b>ファイル未解析</b></div>';return`<div class="sumitem"><small>校種</small><b>${esc(st.schoolType)}</b></div><div class="sumitem"><small>対象</small><b>${esc(st.city||'未選択')}</b></div><div class="sumitem"><small>出力方法</small><b>${modeName[st.mode]}</b></div><div class="sumitem"><small>抽出条件</small><b>${condName[st.condition]}</b></div><div class="sumitem"><small>出力予定</small><b class="big">${fmt(output())}</b></div>`}function updateSummary(){$('#sum').innerHTML=summary();$('#inlineSum').innerHTML=summary();updateStatus()}
+function updateReadiness(){const count=(st.csvFile?1:0)+(st.xlsxFile?1:0),box=$('#readyBox');$('#readyTitle').textContent=`準備状況　${count} / 2ファイル`;$('#readyBar').style.width=(count*50)+'%';box.classList.toggle('complete',count===2);box.classList.toggle('partial',count!==2);$('#readyText').textContent=count===2?'必要なファイルが揃いました。':!st.csvFile?'元データCSVを選択してください。':'学校コードExcelを選択してください。';$('#parseBtn').disabled=count!==2}
+function setDropState(kind,state,message=''){const d=$('#'+kind+'Drop'),m=$('#'+kind+'Meta'),title=$('#'+kind+'Title'),icon=d.querySelector('.drop-icon');d.classList.remove('selected','loaded','analyzing','errorstate');if(state==='selected'){d.classList.add('selected');icon.textContent='✓';title.textContent=(kind==='csv'?'元データCSV':'学校コードExcel')+' 選択済み';$('#'+kind+'PickBtn').textContent=kind==='csv'?'別のCSVに変更':'別のExcelに変更'}else if(state==='analyzing'){d.classList.add('analyzing');icon.textContent='…';title.textContent=(kind==='csv'?'元データCSV':'学校コードExcel')+' 解析中'}else if(state==='error'){d.classList.add('errorstate');icon.textContent='×';title.textContent='ファイル形式を確認してください';m.classList.remove('hidden');m.innerHTML='<b>× '+esc(message)+'</b>'}else{icon.textContent='⇩';title.textContent=kind==='csv'?'元データCSV':'学校コードExcel'}}
+function clearDependentState(){st.parsed=false;st.unlocked=1;st.office='';st.city='';st.school='';st.officeMap=new Map;st.rowsByCode=new Map;st.history=[];st.lastBlob=null;st.lastFilename='';updateNav();updateSummary()}
+function requestPick(kind){if(st.parsed){st.pendingKind=kind;st.pendingFile=null;$('#changeTitle').textContent=(kind==='csv'?'元データCSV':'学校コードExcel')+'を変更しますか？';$('#changeBg').classList.add('open')}else $('#'+kind+'Input').click()}
+function requestDroppedFile(file,kind){if(st.parsed){st.pendingKind=kind;st.pendingFile=file;$('#changeTitle').textContent=(kind==='csv'?'元データCSV':'学校コードExcel')+'を変更しますか？';$('#changeBg').classList.add('open')}else choose(file,kind)}
+function choose(file,kind){if(!file)return;const ext=kind==='csv'?'.csv':'.xlsx';if(!file.name.toLowerCase().endsWith(ext)){setDropState(kind,'error',`この欄には${ext}ファイルを選択してください。`);toast(ext+'ファイルを選択してください。',true);return}st[kind+'File']=file;st[kind+'Name']=file.name;const m=$('#'+kind+'Meta');setDropState(kind,'selected');m.classList.remove('hidden');m.innerHTML='<b>✓ 選択済み</b><br>'+esc(file.name)+'<br><small>'+bytes(file.size)+'</small>';updateReadiness();updateStatus();toast((kind==='csv'?'元データCSV':'学校コードExcel')+'を選択しました')}
+function parseCsv(text){const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i];if(q){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=c}else if(c==='"')q=true;else if(c===','){row.push(cell);cell=''}else if(c==='\r'||c==='\n'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=c}if(q)throw Error('CSVの引用符が閉じられていません。');if(cell!==''||row.length){row.push(cell);rows.push(row)}while(rows.length&&rows.at(-1).length===1&&rows.at(-1)[0]==='')rows.pop();return rows}
+function findCol(h,exact,part,required=true){let a=h.map((x,i)=>x===exact?i:-1).filter(i=>i>=0);if(a.length>1)throw Error('制御列「'+exact+'」が複数あります。');if(a.length===1)return a[0];a=h.map((x,i)=>trim(x)===exact||trim(x).includes(part)?i:-1).filter(i=>i>=0);if(a.length>1)throw Error('「'+part+'」を含む候補列が複数あります。');if(a.length===1)return a[0];if(required)throw Error('必須列「'+exact+'」が見つかりません。');return-1}
+async function readCsv(file){const t=performance.now(),buf=await file.arrayBuffer(),u=new Uint8Array(buf);let text,encoding;if(u[0]===239&&u[1]===187&&u[2]===191){text=new TextDecoder('utf-8').decode(u.subarray(3));encoding='UTF-8（BOM付き）'}else{try{text=new TextDecoder('utf-8',{fatal:true}).decode(u);encoding='UTF-8（BOMなし）'}catch{text=new TextDecoder('shift_jis').decode(u);encoding='Shift-JIS・CP932'}}const newline=text.includes('\r\n')?'CRLF':text.includes('\n')?'LF':text.includes('\r')?'CR':'なし',rows=parseCsv(text);if(rows.length<2)throw Error('CSVにデータ行がありません。');const h=rows[0],data=rows.slice(1),bad=[];data.forEach((r,i)=>{if(r.length!==h.length)bad.push(i+2)});if(bad.length)throw Error('CSVの列数不一致：'+bad.length+'行（'+bad.slice(0,20).join('、')+'行目）');const counts=new Map;h.forEach(x=>counts.set(x,(counts.get(x)||0)+1));return{h,data,id:findCol(h,control.id,control.idPart),first:findCol(h,control.first,control.first,false),last:findCol(h,control.last,control.last,false),dups:[...counts].filter(x=>x[1]>1),encoding,newline,time:performance.now()-t}}
+async function readMaster(file){if(!window.XLSX)throw Error('Excel読込ライブラリが見つかりません。assets/xlsx.full.min.jsを確認してください。');const t=performance.now(),wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),out={小学校:[],中学校:[],fallbacks:[],ignoredCodes:[]},special=new Set(['国独','県立','その他']);for(const [sheet,head,type]of[['小学校コード一覧表','小学校名','小学校'],['中学校コード一覧表','中学校名','中学校']]){if(!wb.SheetNames.includes(sheet))throw Error('必須シート「'+sheet+'」がありません。');const a=XLSX.utils.sheet_to_json(wb.Sheets[sheet],{header:1,raw:true,defval:''}),got=(a[1]||[]).slice(0,4).map(trim),exp=['コード番号','事務所名','教育委員会名',head];if(exp.some((x,i)=>got[i]!==x))throw Error('「'+sheet+'」の2行目A～D列が標準構造と異なります。');for(let i=2;i<a.length;i++){const r=a[i]||[];if(r[0]===''||r[0]==null)continue;const code=trim(r[0]),office=trim(r[1]),rawCity=trim(r[2]),name=trim(r[3]);if(!/^\d{6}$/.test(code)){out.ignoredCodes.push({sheet,row:i+1,code,office,city:rawCity,name,reason:'6桁以外のコード'});continue}if(!office||!name)throw Error(sheet+' '+(i+1)+'行目（'+code+'）に必須項目の空欄があります。');let city=rawCity;if(!city){if(special.has(office)){city=office;out.fallbacks.push({sheet,row:i+1,code,office,name,filled:city})}else throw Error(sheet+' '+(i+1)+'行目（'+code+'）の教育委員会名が空欄です。通常の教育事務所では自動補完できません。')}out[type].push({code,office,city,name,row:i+1})}}out.time=performance.now()-t;return out}
+function analyze(c,m){const t=performance.now(),rowsByCode=new Map,idCnt=new Map,firstVals=new Map,lastVals=new Map,invalid=[];c.data.forEach((r,i)=>{const id=trim(r[c.id]);if(!/^\d{6}/.test(id)){invalid.push(i+2);return}const code=id.slice(0,6);if(!rowsByCode.has(code))rowsByCode.set(code,[]);rowsByCode.get(code).push(i);idCnt.set(id,(idCnt.get(id)||0)+1);if(c.first>=0){const v=trim(r[c.first]);firstVals.set(v,(firstVals.get(v)||0)+1)}if(c.last>=0){const v=trim(r[c.last]);lastVals.set(v,(lastVals.get(v)||0)+1)}});if(invalid.length)throw Error('調査用児童生徒番号の左6文字が不正な行があります：'+invalid.slice(0,20).join('、'));const maps={小学校:new Map,中学校:new Map};for(const type of['小学校','中学校'])m[type].forEach(e=>{if(!maps[type].has(e.code))maps[type].set(e.code,[]);maps[type].get(e.code).push(e)});const unknown=[],both=[],types=new Set;for(const code of rowsByCode.keys()){const s=maps.小学校.has(code),c2=maps.中学校.has(code);if(s&&c2)both.push(code);else if(s)types.add('小学校');else if(c2)types.add('中学校');else unknown.push(code)}if(both.length)throw Error('小中両方に存在する使用中コード：'+both.join('、'));if(unknown.length)throw Error('学校コードExcelに未登録のコード：'+unknown.join('、'));if(types.size!==1)throw Error('小学校と中学校のデータが混在しています。');const type=[...types][0],same=[],diff=[],canon=new Map;for(const[code,list]of maps[type]){const sig=new Set(list.map(e=>[e.office,e.city,e.name].join('\0')));if(sig.size>1)diff.push({code,list});else if(list.length>1)same.push({code,list});canon.set(code,list[0])}const usedDiff=diff.filter(x=>rowsByCode.has(x.code));if(usedDiff.length)throw Error('使用中コードに異なる学校情報の重複：'+usedDiff.map(x=>x.code).join('、'));const officeMap=new Map;for(const[code,e]of canon){const rr=rowsByCode.get(code)||[];let first=0,last=0;rr.forEach(i=>{if(c.first>=0&&trim(c.data[i][c.first])==='○')first++;if(c.last>=0&&trim(c.data[i][c.last])==='○')last++});const item={...e,all:rr.length,first,last};if(!officeMap.has(e.office))officeMap.set(e.office,new Map);if(!officeMap.get(e.office).has(e.city))officeMap.get(e.office).set(e.city,[]);officeMap.get(e.office).get(e.city).push(item)}return{type,officeMap,rowsByCode,same,diff,dupId:[...idCnt.values()].reduce((a,x)=>a+Math.max(0,x-1),0),firstVals,lastVals,time:performance.now()-t}}
+function valMap(m){return[...m].map(([k,v])=>(k||'空欄')+'：'+v+'件').join('<br>')||'該当なし'}
+function renderCheck(a){const c=st.csv,m=st.master;$('#checkArea').innerHTML=`<div class="metrics"><div class="metric"><small>判定校種</small><b>${esc(st.schoolType)}</b></div><div class="metric"><small>データ件数</small><b>${fmt(c.data.length)}</b></div><div class="metric"><small>データ内学校</small><b>${a.rowsByCode.size}校</b></div><div class="metric"><small>CSV列数</small><b>${c.h.length}列</b></div></div><div class="card" style="margin-top:15px"><div class="card-head"><h3>検査結果</h3><p>${esc(st.csvName)} と ${esc(st.xlsxName)}</p></div><div class="card-body"><ul class="checks"><li><span>✓</span>調査用児童生徒番号列を確認</li><li><span>✓</span>初回受検フラグ列：${c.first>=0?'確認済み':'見つかりません'}</li><li><span>✓</span>最終回受検フラグ列：${c.last>=0?'確認済み':'見つかりません'}</li><li><span>✓</span>${esc(st.schoolType)}データとして判定</li><li><span>✓</span>使用中の学校コード ${a.rowsByCode.size}校をすべて照合</li></ul>${c.dups.length?`<div class="msg info"><b>ℹ</b><div><strong>同じ名称の列があります</strong><br>重複列名：${c.dups.length}種類。列位置のまま保持しています。</div></div>`:''}${a.dupId?`<div class="msg info"><b>ℹ</b><div><strong>同一の調査用児童生徒番号を持つ行があります</strong><br>重複追加行数：${a.dupId}件</div></div>`:''}${st.masterIgnoredCodes.length?`<div class="msg info"><b>ℹ</b><div><strong>6桁以外のコードを対象外として除外しました</strong><br>対象外：${st.masterIgnoredCodes.length}件。5桁の委員会コードなどは学校分割に使用しません。<details><summary>対象外コードを表示</summary><div class="details">${st.masterIgnoredCodes.map(x=>`${esc(x.sheet)} ${x.row}行目：${esc(x.code)}${x.name?'（'+esc(x.name)+'）':''}`).join('<br>')}</div></details></div></div>`:''}${st.masterFallbacks.length?`<div class="msg warn"><b>△</b><div><strong>特殊区分の教育委員会名を自動補完しました</strong><br>${st.masterFallbacks.map(x=>`${esc(x.code)}：${esc(x.office)}として補完（${esc(x.name)}）`).join('<br>')}<br>元のExcelファイルは変更していません。</div></div>`:''}${a.same.length?`<div class="msg warn"><b>△</b><div><strong>学校コード一覧に同一内容の重複があります</strong><br>${a.same.length}コード。処理は継続できます。</div></div>`:''}<details><summary>詳細な検査結果を表示</summary><div class="details">文字コード：${c.encoding}<br>改行：${c.newline}<br>CSV解析：${c.time.toFixed(1)} ms<br>Excel解析：${m.time.toFixed(1)} ms<br>照合・集計：${a.time.toFixed(1)} ms<br><br><b>初回受検フラグ値</b><br>${valMap(a.firstVals)}<br><br><b>最終回受検フラグ値</b><br>${valMap(a.lastVals)}</div></details></div></div>`;$('#to3').disabled=false}
+async function parseAll(){st.busy=true;setDropState('csv','analyzing');setDropState('xlsx','analyzing');updateNav();updateStatus();$('#parseBtn').disabled=true;$('#parseBtn').textContent='解析しています…';let targetStep=2;try{const[c,m]=await Promise.all([readCsv(st.csvFile),readMaster(st.xlsxFile)]),a=analyze(c,m);st.csv=c;st.master=m;st.masterFallbacks=m.fallbacks||[];st.masterIgnoredCodes=m.ignoredCodes||[];st.masterSameCodes=a.same.map(x=>x.code);st.officeMap=a.officeMap;st.rowsByCode=a.rowsByCode;st.schoolType=a.type;st.parsed=true;st.office='';st.city='';st.survey=st.csvName.replace(/\.csv$/i,'');renderCheck(a);renderOffices();unlock(2);toast('実ファイルの読込と照合が完了しました')}catch(e){st.parsed=false;unlock(2);const message=String(e&&e.message?e.message:e);let category='解析処理';if(message.includes('Excel読込ライブラリ'))category='Excel読込ライブラリ';else if(message.includes('シート')||message.includes('学校コード一覧表')||message.includes('中学校コード一覧表')||message.includes('教育委員会名'))category='学校コードExcel';else if(message.includes('CSV')||message.includes('列')||message.includes('調査用児童生徒番号'))category='元データCSV';else if(message.includes('未登録')||message.includes('混在')||message.includes('重複'))category='学校コード照合';$('#checkArea').innerHTML=`<div class="msg err"><b>×</b><div><strong>${esc(category)}の確認を完了できませんでした</strong><br>${esc(message)}<br><br>ファイル選択に戻り、該当するファイルを確認してください。<details><summary>技術的な詳細を表示</summary><div class="details">${esc(e&&e.stack?e.stack:message)}</div></details></div></div>`;$('#to3').disabled=true;console.error('survey-csv-splitter parse error',e);toast('解析を完了できませんでした',true)}finally{st.busy=false;setDropState('csv','selected');setDropState('xlsx','selected');$('#csvMeta').classList.remove('hidden');$('#xlsxMeta').classList.remove('hidden');$('#parseBtn').textContent='ファイルを確認して次へ';updateReadiness();updateNav();updateStatus();$('#targetCsv').textContent=st.csvName||'未選択';$('#targetXlsx').textContent=st.xlsxName||'未選択';go(targetStep)}}
+function renderOffices(){const o=$('#office');o.innerHTML='<option value="">選択してください</option>'+[...st.officeMap.keys()].map(x=>`<option>${esc(x)}</option>`).join('');o.value=st.office;renderCities()}function renderCities(){const c=$('#city'),map=st.officeMap.get(st.office);c.disabled=!map;c.innerHTML=map?'<option value="">選択してください</option>'+[...map.keys()].map(x=>`<option>${esc(x)}</option>`).join(''):'<option>教育事務所を先に選択</option>';if(map?.has(st.city))c.value=st.city;else st.city='';renderCity()}
+function renderCity(){const ss=schools(),show=!!st.city;$('#cityCard').classList.toggle('hidden',!show);$('#to4').disabled=!show||total('all')===0;if(!show){updateSummary();return}$('#cityTitle').textContent=st.city;$('#citySub').textContent='教育事務所：'+st.office;const withData=ss.filter(x=>x.all>0).length;$('#cityMetrics').innerHTML=`<div class="metric"><small>登録学校</small><b>${ss.length}校</b></div><div class="metric"><small>データあり</small><b>${withData}校</b></div><div class="metric"><small>データなし</small><b>${ss.length-withData}校</b></div><div class="metric"><small>全データ</small><b>${fmt(total('all'))}</b></div>`;$('#zeroMsg').classList.toggle('hidden',total('all')!==0);renderRows('all');updateSummary()}
+function renderRows(f){const rows=schools().filter(x=>f==='all'||f==='data'&&x.all>0||f==='zero'&&x.all===0);$('#schoolRows').innerHTML=rows.map(x=>`<tr><td><span class="pill ${x.all?'good':'zero'}">${x.all?'データあり':'データなし'}</span></td><td>${x.code}</td><td>${esc(x.name)}</td><td class="num">${fmt(x.all)}</td></tr>`).join('');$$('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===f))}
+function renderStep4(){$$('.option').forEach(x=>x.classList.toggle('sel',x.dataset.mode===st.mode));$('#singleCard').classList.toggle('hidden',st.mode!=='single');$('#schoolSelect').innerHTML='<option value="">選択してください</option>'+schools().map(x=>`<option value="${x.code}" ${x.all?'':'disabled'}>${x.code}　${esc(x.name)}　${x.all}件${x.all?'':'・選択不可'}</option>`).join('');$('#schoolSelect').value=st.school;const s=selected();$('#conditions').innerHTML=[['all','全データを残す'],['first','初回受検フラグのみ'],['last','最終回受検フラグのみ']].map(([k,l])=>`<label class="radio ${st.condition===k?'sel':''}"><input type="radio" name="cond" value="${k}" ${st.condition===k?'checked':''} ${(k==='first'&&st.csv.first<0)||(k==='last'&&st.csv.last<0)?'disabled':''}><span><b>${l}</b></span><span class="count">${fmt(st.mode==='single'&&s?s[k]:total(k))}</span></label>`).join('');$('#prefix').value=st.prefix;$('#survey').value=st.survey;$('#suffix').value=st.suffix;updatePreview()}
+function updatePreview(){st.prefix=$('#prefix').value;st.survey=$('#survey').value;st.suffix=$('#suffix').value;invalidateDownload();let p;if(st.mode==='single')p=selected()?safeSchoolFile(selected()):'学校を選択してください';else if(st.mode==='city')p=safeCityFile()+' / '+safeZipFile();else{const x=schools().find(x=>x.all>0);p=(x?safeSchoolFile(x):'対象なし')+' / '+safeZipFile()}$('#preview').textContent=p;const c=validateNames(),v=$('#nameValidation');v.className='validation '+c.level;v.textContent=c.message;updateSummary()}
+function renderReview(){const x=selected(),base=st.mode==='single'&&x?x.all:total('all'),c=validateNames();st.criticalAck=false;const critical=c.critical?`<div class="msg warn"><b>△</b><div><strong>非常に長いファイル名があります</strong><br>${esc(c.message)}<br><label><input type="checkbox" id="criticalAck"> 内容を確認しました</label></div></div>`:'',master=c.masterChanged?'<div class="msg warn"><b>△</b><div><strong>マスター由来の禁止文字をファイル名用に全角へ置換します</strong><br>CSV内部の値は変更しません。</div></div>':'';$('#review').innerHTML=`<div class="card"><div class="card-head"><h3>処理対象</h3></div><div class="card-body"><div class="metrics"><div class="metric"><small>校種</small><b>${st.schoolType}</b></div><div class="metric"><small>教育事務所</small><b>${esc(st.office)}</b></div><div class="metric"><small>市町村</small><b>${esc(st.city)}</b></div><div class="metric"><small>登録学校</small><b>${schools().length}校</b></div></div></div></div><div class="card"><div class="card-head"><h3>出力予定</h3></div><div class="card-body"><p><b>出力方法：</b>${modeName[st.mode]}<br><b>抽出条件：</b>${condName[st.condition]}<br><b>入力件数：</b>${fmt(base)}<br><b>出力予定：</b>${fmt(output())}${x?'<br><b>指定学校：</b>'+x.code+' '+esc(x.name):''}</p><div class="preview mono">${esc(st.mode==='single'?safeSchoolFile(x):safeZipFile())}</div></div></div>${critical}${master}<div class="msg ok"><b>✓</b><div><strong>件数の整合性を確認しました</strong><br>入力 ${fmt(base)} ＝ 除外 ${fmt(base-output())} ＋ 出力予定 ${fmt(output())}</div></div>`;$('#fakeGenerate').disabled=c.critical;$('#criticalAck')?.addEventListener('change',e=>{$('#fakeGenerate').disabled=!e.target.checked;st.criticalAck=e.target.checked})}
+function invalidateDownload(){st.lastBlob=null;st.lastFilename=''}
+function setGenerating(on){st.busy=on;updateNav();$('#resetBtn').disabled=on;$$('[data-go],#fakeGenerate').forEach(b=>b.disabled=on||b.id==='fakeGenerate'&&st.nameCheck?.critical&&!st.criticalAck)}
+function renderHistory(){const box=$('#historyBox');box.classList.toggle('hidden',!st.history.length);$('#historyList').innerHTML=st.history.map(h=>`<li><b>${esc(h.time)}</b>　${esc(h.office)} / ${esc(h.city)}　${esc(h.mode)}　${esc(h.condition)}　${fmt(h.count)}<br><small>${esc(h.filename)}</small></li>`).join('')}
+function renderNextActions(){const a=[];if(st.mode==='single')a.push(['同じ市町村から別の学校を選ぶ','anotherSchool']);a.push(['同じ条件で別の市町村を選ぶ','anotherCity']);if(st.mode!=='schools')a.push(['同じ市町村の学校別ZIPを作る','schools']);if(st.mode!=='city')a.push(['同じ市町村の市町村用ZIPを作る','city']);if(st.mode!=='single')a.push(['同じ市町村から1校を指定する','single']);a.push(['出力設定を変更する','settings'],['すべてリセット','reset']);$('#nextActions').innerHTML=a.map(([t,v])=>`<button class="btn secondary" data-next="${v}">${t}</button>`).join('')}
+function completeMetrics(name,fileCount,elapsed){const sourceZero=schools().filter(x=>x.all===0).length,conditionZero=schools().filter(x=>x.all>0&&(x[st.condition]||0)===0).length;$('#completeSummary').innerHTML=`<div class="card"><div class="card-body" style="text-align:left"><b>出力方法：</b>${modeName[st.mode]}<br><b>対象：</b>${esc(st.office)} / ${esc(st.city)}${selected()?' / '+esc(selected().name):''}<br><b>抽出条件：</b>${condName[st.condition]}<br><b>生成ファイル数：</b>${fileCount}<br><b>出力件数：</b>${fmt(output())}<br><b>元データなし：</b>${sourceZero}校<br><b>選択条件では0件：</b>${conditionZero}校<br><b>処理時間：</b>${elapsed.toFixed(2)}秒<br><b>ファイル名：</b><span class="mono">${esc(name)}</span></div></div>`;renderNextActions();renderHistory()}
+function handleNext(v){invalidateDownload();if(v==='reset'){location.reload();return}if(v==='anotherCity'){st.city='';st.school='';renderCities();go(3);return}if(v==='anotherSchool'){st.school='';st.mode='single';renderStep4();go(4);$('#schoolSelect').focus();return}if(['schools','city','single'].includes(v)){st.mode=v;st.school='';st.suffix=v==='city'?'市町村用':'学校用';renderStep4();go(4);return}go(4)}
+$$('[data-side]').forEach(b=>b.onclick=()=>{$('#sideBg').classList.add('open');$('#help').classList.toggle('hidden',b.dataset.side!=='help');$('#notice').classList.toggle('hidden',b.dataset.side!=='notice');$('#sideTitle').textContent=b.dataset.side==='help'?'使い方':'注意事項'});$('#sideClose').onclick=()=>$('#sideBg').classList.remove('open');$('#sideBg').onclick=e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open')};$('#cancelChange').onclick=()=>{st.pendingKind='';st.pendingFile=null;$('#changeBg').classList.remove('open')};$('#confirmChange').onclick=()=>{const kind=st.pendingKind,file=st.pendingFile;$('#changeBg').classList.remove('open');clearDependentState();if(file)choose(file,kind);else $('#'+kind+'Input').click();st.pendingKind='';st.pendingFile=null};$('#changeBg').onclick=e=>{if(e.target===e.currentTarget){st.pendingKind='';st.pendingFile=null;e.currentTarget.classList.remove('open')}};$('#resetBtn').onclick=()=>$('#resetBg').classList.add('open');$('#cancelReset').onclick=()=>$('#resetBg').classList.remove('open');$('#confirmReset').onclick=()=>location.reload();
+$$('[data-pick]').forEach(b=>b.onclick=()=>requestPick(b.dataset.pick));$('#csvInput').onchange=e=>{choose(e.target.files[0],'csv');e.target.value=''};$('#xlsxInput').onchange=e=>{choose(e.target.files[0],'xlsx');e.target.value=''};for(const kind of['csv','xlsx']){const d=$('#'+kind+'Drop');for(const ev of['dragenter','dragover'])d.addEventListener(ev,e=>{e.preventDefault();d.classList.add('over')});for(const ev of['dragleave','drop'])d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove('over')});d.addEventListener('drop',e=>{if(e.dataTransfer.files.length!==1){toast('ファイルは1つずつ選択してください。',true);return}requestDroppedFile(e.dataTransfer.files[0],kind)})}
+$('#parseBtn').onclick=parseAll;$$('.step').forEach(b=>b.onclick=()=>go(+b.dataset.step));$$('[data-go]').forEach(b=>b.onclick=()=>go(+b.dataset.go));$('#to3').onclick=()=>{unlock(3);renderOffices();go(3)};$('#office').onchange=e=>{invalidateDownload();st.office=e.target.value;st.city='';renderCities()};$('#city').onchange=e=>{invalidateDownload();st.city=e.target.value;st.school='';renderCity()};$$('[data-filter]').forEach(b=>b.onclick=()=>renderRows(b.dataset.filter));$('#to4').onclick=()=>{unlock(4);renderStep4();go(4)};$$('[data-mode]').forEach(b=>b.onclick=()=>{invalidateDownload();st.mode=b.dataset.mode;if(st.mode!=='single')st.school='';st.suffix=st.mode==='city'?'市町村用':'学校用';renderStep4()});$('#schoolSelect').onchange=e=>{invalidateDownload();st.school=e.target.value;renderStep4()};$('#conditions').onchange=e=>{if(e.target.name==='cond'){invalidateDownload();st.condition=e.target.value;renderStep4()}};for(const id of['prefix','survey','suffix'])$('#'+id).oninput=updatePreview;$('#to5').onclick=()=>{updatePreview();const c=validateNames();if(!c.ok){toast(c.message,true);return}if(st.mode==='single'&&!selected()){toast('学校を選択してください。',true);return}unlock(5);renderReview();go(5)};async function generateOutput(){
+ const check=validateNames();if(!check.ok){toast(check.message,true);return}if(check.critical&&!st.criticalAck){toast('長いファイル名の確認が必要です。',true);return}if(!window.JSZip&&st.mode!=='single'){toast('ZIP生成ライブラリが見つかりません。assets/jszip.min.jsを確認してください。',true);return}
+ unlock(6);go(6);setGenerating(true);$('#done').classList.add('hidden');$('#bar').style.width='0%';$('#prog').textContent='対象データを抽出しています';const started=performance.now();
+ try{let blob,name,fileCount=0;
+  if(st.mode==='single'){const x=selected(),rows=rowsForCode(x.code);if(!rows.length)throw Error('選択条件に該当するデータが0件です。');name=safeSchoolFile(x);blob=new Blob([makeCsv(rows)],{type:'text/csv;charset=utf-8'});fileCount=1;$('#bar').style.width='85%'}
+  else if(st.mode==='city'){const rows=rowsForCity();if(!rows.length)throw Error('選択条件に該当するデータが0件です。');const csvName=safeCityFile(),names=[csvName,'処理結果一覧.csv'];if(new Set(names).size!==names.length)throw Error('同じファイル名が複数生成されます。');const zip=new JSZip();zip.file(csvName,makeCsv(rows));zip.file('処理結果一覧.csv',makeResultCsv(csvName));name=safeZipFile();$('#bar').style.width='70%';$('#prog').textContent='ZIPファイルを確定しています';blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},m=>{$('#bar').style.width=(70+m.percent*.29)+'%'});fileCount=2}
+  else{const zip=new JSZip(),used=new Set;let done=0,targets=schools().filter(x=>(x[st.condition]||0)>0);if(!targets.length)throw Error('選択条件に該当するデータが0件です。');for(const x of targets){const fn=safeSchoolFile(x);if(used.has(fn)||fn==='処理結果一覧.csv')throw Error('同じファイル名が複数生成されます：'+fn);used.add(fn);zip.file(fn,makeCsv(rowsForCode(x.code)));done++;$('#bar').style.width=(done/targets.length*65)+'%';$('#prog').textContent=`学校別CSVを生成中 ${done} / ${targets.length}校：${x.name}`;await new Promise(r=>setTimeout(r,0))}zip.file('処理結果一覧.csv',makeResultCsv(''));name=safeZipFile();$('#prog').textContent='ZIPファイルを確定しています';blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},m=>{$('#bar').style.width=(65+m.percent*.34)+'%'});fileCount=targets.length+1}
+  st.lastBlob=blob;st.lastFilename=name;const elapsed=(performance.now()-started)/1000;st.history.push({time:localDateTime(),office:st.office,city:st.city,mode:modeName[st.mode],condition:condName[st.condition],count:output(),filename:name});$('#bar').style.width='100%';$('#prog').textContent='100%';$('#doneText').textContent=`${name}（${fileCount}ファイル、${fmt(output())}）`;$('#done').classList.remove('hidden');completeMetrics(name,fileCount,elapsed);downloadBlob(blob,name);toast('ダウンロードを開始しました')
+ }catch(e){console.error(e);$('#prog').textContent='生成を中止しました';$('#done').classList.remove('hidden');$('#done').innerHTML=`<div class="msg err"><b>×</b><div><strong>ファイルを生成できませんでした</strong><br>${esc(e.message||e)}<br>不完全なファイルはダウンロードしていません。</div></div><button class="btn secondary" id="backAfterError">出力設定へ戻る</button>`;$('#backAfterError').onclick=()=>go(4);toast('ファイルを生成できませんでした',true)
+ }finally{setGenerating(false)}
+}
+$('#fakeGenerate').onclick=generateOutput;$('#redownload').onclick=()=>{if(st.lastBlob)downloadBlob(st.lastBlob,st.lastFilename)};$('#nextActions').onclick=e=>{const b=e.target.closest('[data-next]');if(b)handleNext(b.dataset.next)};
+window.addEventListener('beforeunload',e=>{if(st.csvFile||st.xlsxFile){e.preventDefault();e.returnValue=''}});updateNav();updateSummary();updateReadiness();
+})();
+</script></body></html>
